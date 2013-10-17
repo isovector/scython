@@ -1,0 +1,36 @@
+#!/usr/local/bin/scython
+
+(sleep, alarm_h, alarm_m) = args >>= "%d %d:%d"
+print "argv: %d, %d, %d" % (sleep, alarm_h, alarm_m)
+
+(now_h, now_m) = `date +%R` >>= "%d:%d"
+print "alarm time: %d, %d" % (now_h, now_m) 
+
+def trap_ctrl_c():
+    ``
+    xset dpms force on
+    xset -dpms
+    ``
+    exit()
+
+``
+sleep "${sleep}m"
+cmus-remote -s
+pkill plugin
+pkill firefox
+xset dpms force standby
+``
+
+while True:
+    (now_h, now_m) = `date +%R` >>= "%d:%d"
+    
+    if alarm_h == now_h and alarm_m == now_m:
+        break
+    
+    `sleep 59s`
+
+``
+xset dpms force on
+xset -dpms
+cmus-remote -p
+``
