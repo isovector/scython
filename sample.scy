@@ -1,10 +1,7 @@
 #!/usr/local/bin/scython
 
 (sleep, alarm_h, alarm_m) = args >>= "%d %d:%d"
-print "argv: %d, %d, %d" % (sleep, alarm_h, alarm_m)
 
-(now_h, now_m) = `date +%R` >>= "%d:%d"
-print "alarm time: %d, %d" % (now_h, now_m) 
 
 def trap_ctrl_c():
     ``
@@ -23,8 +20,11 @@ xset dpms force standby
 
 while True:
     (now_h, now_m) = `date +%R` >>= "%d:%d"
-    
+    print "now time: %d, %d" % (now_h, now_m) 
+    print "alarm time %d, %d" % (alarm_h, alarm_m)
+
     if alarm_h == now_h and alarm_m == now_m:
+        print "sounds good!"
         break
     
     `sleep 59s`
