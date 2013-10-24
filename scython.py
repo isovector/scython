@@ -1,5 +1,6 @@
 #!/usr/bin/python2
 import re
+import sys
 
 print r'''#!/usr/bin/python2
 import signal
@@ -9,6 +10,8 @@ import subprocess
 import re
 
 args = string.join(argv[1:])
+
+__scython_dry_run = False
 
 def __scython_unpacker(format, haystack):
     formatTypes = {
@@ -32,6 +35,10 @@ def __scython_unpacker(format, haystack):
         exit('scython Error: Couldn\'t parse "%s"' % format)
 
 def __scython_call(cmd):
+    if __scython_dry_run:
+        print cmd
+        return ""
+
     try:
         return subprocess.check_output(cmd, shell=True)
     except subprocess.CalledProcessError:
@@ -40,7 +47,7 @@ def __scython_call(cmd):
 
 
 
-file = open("sample.scy")
+file = open(sys.argv[1])
 trappingCtrlC = False
 inHereDoc = False
 
@@ -68,6 +75,7 @@ for line in file:
         if tick:
             line = r'%s__scython_call(%s.format(**locals()))%s' % (tick.group(1), repr(tick.group(2)), tick.group(3))
         
+        # it would be really nice if this were an expression
         format = re.search(r'([^=]*)\s*=\s*(.+)\s*>>=\s*(.+)', line)
         if format:
             line = "%s = __scython_unpacker(%s, %s)" % (format.group(1), format.group(3), format.group(2))
