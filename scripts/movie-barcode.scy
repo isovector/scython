@@ -1,0 +1,26 @@
+#!/usr/local/bin/scython
+
+(filepath) = args >>= "%s"
+
+import urllib2
+import re
+
+from os.path import expanduser
+filepath = expanduser(filepath)
+ 
+postRE = re.compile(r'<link>http://moviebarcode.tumblr.com/post/([0-9]+)</link>')
+imageRE = re.compile(r'data-src="([^"]+)"')
+ 
+def get(html, RE):
+    return RE.search(html).group(1).strip()
+
+html = urllib2.urlopen("http://moviebarcode.tumblr.com/rss").read()
+post = get(html, postRE)
+html = urllib2.urlopen("http://moviebarcode.tumblr.com/image/%s" % post).read()
+image = get(html, imageRE)
+
+data = urllib2.urlopen(image)
+with open(filepath, "wb") as local_file:
+    local_file.write(data.read())
+    
+`awsetbg ${filepath}"`

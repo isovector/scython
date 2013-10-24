@@ -1,0 +1,34 @@
+#!/usr/local/bin/scython
+
+import fnmatch
+import os
+
+(aloc, bloc) = args >>= "%s %s"
+
+def getFiles(dir):
+    if dir[-1:] != "/":
+        dir += "/"
+        
+    files = []
+    for root, dirnames, filenames in os.walk(dir):
+        for filename in fnmatch.filter(filenames, '*.*'):
+            files.append(os.path.join(root, filename))
+    files.sort()
+    return (dir, [file[len(dir):] for file in files])
+
+def syncFiles(aloc, bloc, files):
+    for file in files:
+        alocLoc = aloc+file
+        blocLoc = bloc+file
+        newPath = os.path.dirname(blocLoc)
+        `mkdir -p ${newPath}`
+        print `cp -v '${alocLoc}' '${blocLoc}'`[:-1]
+    
+(aloc, alocFiles) = getFiles(aloc)
+(bloc, blocFiles) = getFiles(bloc)
+
+alocToBlocFiles = [f for f in alocFiles+blocFiles if (f in alocFiles) and (f not in blocFiles)]
+blocToAlocFiles = [f for f in alocFiles+blocFiles if (f not in alocFiles) and (f in blocFiles)]
+
+syncFiles(aloc, bloc, alocToBlocFiles)
+syncFiles(bloc, aloc, blocToAlocFiles)
