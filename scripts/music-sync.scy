@@ -22,7 +22,7 @@ def syncFiles(aloc, bloc, files):
         blocLoc = bloc+file
         newPath = os.path.dirname(blocLoc)
         `mkdir -p ${newPath}`
-        print `cp -v '${alocLoc}' '${blocLoc}'`[:-1]
+        print `cp -v '${alocLoc}' '${blocLoc}'`
     
 (aloc, alocFiles) = getFiles(aloc)
 (bloc, blocFiles) = getFiles(bloc)

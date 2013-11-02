@@ -40,7 +40,7 @@ def __scython_call(cmd):
         return ""
 
     try:
-        return subprocess.check_output(cmd, shell=True)
+        return subprocess.check_output(cmd, shell=True)[:-1]
     except subprocess.CalledProcessError:
         return ""
 '''
