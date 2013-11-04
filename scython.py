@@ -3,15 +3,62 @@ import re
 import sys
 
 print r'''#!/usr/bin/python2
-import signal
 from sys import *
-import string
-import subprocess
-import re
+import string, subprocess, re, getopt, signal
 
 args = string.join(argv[1:])
 
 __scython_dry_run = False
+
+options = { }
+def get_options(*os):
+    global argv, args, options
+
+    shortOpts = ""
+    longOpts = [ ]
+    mapping = { }
+    
+    for opt in os:
+        try:
+            index = opt.index("|")
+            if index != 1:
+                exit('scython Error: Invalid short option "%s"' % opt[0:index])
+            shortOpt = opt[0]
+            shortOpts += shortOpt
+            if opt[-1] == "=":
+                shortOpts += ":"
+            opt = opt[index + 1:]
+            
+            mapping[shortOpt] = opt
+        except ValueError:
+            pass
+        
+        longOpts.append(opt)
+        
+    try:
+        opts, argv = getopt.gnu_getopt(argv, shortOpts, longOpts)
+    except getopt.GetoptError as err:
+        exit(str(err))
+        
+    for opt, val in opts:
+        while opt[0] == "-":
+            opt = opt[1:]
+    
+        if opt in mapping:
+            opt = mapping[opt]
+            if opt[-1] == "=":
+                opt = opt[0:-1]
+
+        if val == "":
+            val = 1
+            if opt in options:
+                options[opt] += val
+            else:
+                options[opt] = 1
+        else:
+            options[opt] = val
+            
+    args = string.join(argv[1:])
 
 def __scython_unpacker(format, haystack):
     formatTypes = {

@@ -1,0 +1,13 @@
+#!/usr/local/bin/scython
+
+print args
+get_options("v|verbose", "o|output=", "long-only")
+print args
+
+print options
+
+print "verbose: ", options["verbose"]
+print "output: ", options["output"]
+print "long-only:", options["long-only"]
+
+get_options("error|error")
