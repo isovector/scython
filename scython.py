@@ -2,7 +2,7 @@
 import re
 import sys
 
-print r'''#!/usr/bin/python2
+code = r'''#!/usr/bin/python2
 from sys import *
 import string, subprocess, re, getopt, signal
 
@@ -112,7 +112,7 @@ for line in file:
     else:
         # insert appropriate signal handles
         if not re.match(r'\s', line) and trappingCtrlC:
-            print "signal.signal(signal.SIGINT, trap_ctrl_c)"
+            code += "signal.signal(signal.SIGINT, trap_ctrl_c)\n"
             trappingCtrlC = False
             
         if re.search('trap_ctrl_c', line):
@@ -128,6 +128,8 @@ for line in file:
             line = "%s = __scython_unpacker(%s, %s)" % (format.group(1), format.group(3), format.group(2))
     
     line = re.sub(r'\$\{(\w+)\}', r'{\1}', line)
-    print line
+    code += line + "\n"
     
 file.close()
+
+exec code
