@@ -59,8 +59,18 @@ network={
 if not os.path.exists("/usr/share/ca-certificates/mozilla/Eduroam.crt"):
     usage()
 
-# If not installing, just connect to eduroam
-``
-wpa_supplicant -Dnl80211,wext -iwlan0 -c/etc/wpa_supplicant.conf -B
-dhcpcd -t 30 wlan0
-``
+
+# Connect in a different process, so we can return
+if os.fork() == 0:
+    ``
+    pkill dhcpcd
+    pkill wpa_supplicant
+    sleep 1s
+    ``
+    if os.fork() == 0:
+        print "spawning wpa_supplicant"
+        `wpa_supplicant -Dnl80211,wext -iwlan0 -c/etc/wpa_supplicant.conf`
+    else:
+        `sleep 5s`
+        print "starting dhcpcd"
+        `dhcpcd -d wlan0`
