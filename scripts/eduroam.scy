@@ -1,0 +1,66 @@
+#!/usr/local/bin/scython
+import os
+
+get_options("install", "user=", "pass=")
+
+def usage():
+    exit("To install, use --install --user=username@uwaterloo.ca --pass=password")
+
+if "install" in options:
+    if not ("user" in options and "pass" in options):
+        usage()
+
+    print "starting install of eduroam"
+    
+    # create a sane environment
+    print "installing necessary packages..."
+    ``
+    yes | pacman -S openssl wget wpasupplicant dhcpcd
+    mkdir -p /run/wpa_supplicant
+    mkdir -p /usr/share/ca-certificates/mozilla
+    ``
+    
+    # get the proper ca certificate for eduroam
+    # mirrored on my gist
+    print "downloading eduroam certificate..."
+    `wget -O /usr/share/ca-certificates/mozilla/Eduroam.crt https://gist.github.com/Paamayim/7320160/raw/f4ce4ca43dc0a093528cbd22b22a76db69726245/eduroam`
+    
+    # create a hash of your password so we don't keep it in plaintext
+    password = options["pass"]
+    password = `echo -n ${password} | iconv -t utf16le | openssl md4` >>= "(stdin)= %s"
+    password = password[0]
+
+    # write out wpa_supplicant.conf
+    print "adding config for %s, hash %s..." % (options["user"], password)
+    conf = """
+ctrl_interface=DIR=/run/wpa_supplicant GROUP=users
+eapol_version=1
+ap_scan=1
+fast_reauth=1
+
+network={
+      ssid="eduroam"
+      key_mgmt=WPA-EAP
+      eap=PEAP
+      ca_cert="/usr/share/ca-certificates/mozilla/Eduroam.crt"
+      phase2="auth=MSCHAPV2"
+      identity="%s"
+      password=hash:%s
+}""" % (options["user"], password)
+    
+    confFile = open("/etc/wpa_supplicant.conf", "w")
+    confFile.write(conf)
+    confFile.close()
+
+    print "finished install of eduroam"
+    exit(0)
+
+
+if not os.path.exists("/usr/share/ca-certificates/mozilla/Eduroam.crt"):
+    usage()
+
+# If not installing, just connect to eduroam
+``
+wpa_supplicant -Dnl80211,wext -iwlan0 -c/etc/wpa_supplicant.conf -B
+dhcpcd -t 30 wlan0
+``
