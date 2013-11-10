@@ -15,7 +15,7 @@ if "install" in options:
     # create a sane environment
     print "installing necessary packages..."
     ``
-    yes | pacman -S openssl wget wpasupplicant dhcpcd
+    yes | pacman -S openssl wget wpasupplicant
     mkdir -p /run/wpa_supplicant
     mkdir -p /usr/share/ca-certificates/mozilla
     ``
@@ -37,6 +37,7 @@ ctrl_interface=DIR=/run/wpa_supplicant GROUP=users
 eapol_version=1
 ap_scan=1
 fast_reauth=1
+update_config=1
 
 network={
       ssid="eduroam"
@@ -68,9 +69,7 @@ if os.fork() == 0:
     sleep 1s
     ``
     if os.fork() == 0:
-        print "spawning wpa_supplicant"
         `wpa_supplicant -Dnl80211,wext -iwlan0 -c/etc/wpa_supplicant.conf`
     else:
-        `sleep 5s`
-        print "starting dhcpcd"
-        `dhcpcd -d wlan0`
+        `sleep 1s`
+        `dhclient wlan0`
