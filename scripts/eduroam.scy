@@ -1,12 +1,18 @@
 #!/usr/local/bin/scython
 require_su()
 
-get_options("install", "user=", "pass=")
+get_options("install", "user=", "pass=", "force")
 
 def usage():
     exit("To install, use --install --user=username@uwaterloo.ca --pass=password")
 
 if "install" in options:
+    if "Debian" not in `uname -a` and "force" not in options:
+        print "not installing because system isn't Debian"
+        print "use the --force option to install anyway"
+        exit(1)
+        
+    
     if not ("user" in options and "pass" in options):
         usage()
 
@@ -14,11 +20,15 @@ if "install" in options:
     
     # create a sane environment
     print "installing necessary packages..."
+    
     ``
-    yes | pacman -S openssl wget wpasupplicant
+    yes | apt-get install openssl wget wpasupplicant wpagui
     mkdir -p /run/wpa_supplicant
     mkdir -p /usr/share/ca-certificates/mozilla
     ``
+    
+    # the default networking service thrashes with our setup
+    `update-rc.d networking remove`
     
     # install the ca certificate for eduroam
     print "installing eduroam certificate..."
