@@ -4,11 +4,28 @@ import sys
 
 code = r'''#!/usr/bin/python2
 from sys import *
-import string, subprocess, re, getopt, signal
+import string, subprocess, re, getopt, signal, os
 
 args = string.join(argv[1:])
 
 __scython_dry_run = False
+
+uid = os.getuid()
+
+def require_su():
+    if uid != 0:
+        exit("%s must be run as root" % argv[0])
+        
+def read_file(filename):
+    with open(filename) as file:
+        return file.read()
+
+def write_file(filename, data, mode = "w"):
+    with open(filename, mode) as file:
+        file.write(data)
+
+def path_exists(path):
+    return os.path.exists(path)
 
 options = { }
 def get_options(*os):
@@ -81,15 +98,16 @@ def __scython_unpacker(format, haystack):
     except AttributeError:
         exit('scython Error: Couldn\'t parse "%s"' % format)
 
-def __scython_call(cmd):
+def __scython_call(cmd, wantReturnCode):
     if __scython_dry_run:
         print cmd
         return ""
 
     try:
-        return subprocess.check_output(cmd, shell=True)[:-1]
+        output = subprocess.check_output(cmd, shell=True)[:-1]
+        return output if not wantReturnCode else True
     except subprocess.CalledProcessError:
-        return ""
+        return False
 '''
 
 
@@ -107,7 +125,7 @@ for line in file:
     
     if inHereDoc:
         hereDoc = re.match(r'(\s*)(.*)', line)
-        line = r'%s__scython_call(%s.format(**locals()))' % (hereDoc.group(1), repr(hereDoc.group(2)))
+        line = r'%s__scython_call(%s.format(**locals()), False)' % (hereDoc.group(1), repr(hereDoc.group(2)))
         
     else:
         # insert appropriate signal handles
@@ -118,9 +136,9 @@ for line in file:
         if re.search('trap_ctrl_c', line):
             trappingCtrlC = True
         
-        tick = re.search(r'(.*)`(.*)`(.*)', line)
+        tick = re.search(r'(.*)`(.*)`(\??)(.*)', line)
         if tick:
-            line = r'%s__scython_call(%s.format(**locals()))%s' % (tick.group(1), repr(tick.group(2)), tick.group(3))
+            line = r'%s__scython_call(%s.format(**locals()), %s)%s' % (tick.group(1), repr(tick.group(2)), len(tick.group(3)) == 1, tick.group(4))
         
         # it would be really nice if this were an expression
         format = re.search(r'([^=]*)\s*=\s*(.+)\s*>>=\s*(.+)', line)

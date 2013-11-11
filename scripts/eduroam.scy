@@ -1,5 +1,5 @@
 #!/usr/local/bin/scython
-import os
+require_su()
 
 get_options("install", "user=", "pass=")
 
@@ -20,10 +20,32 @@ if "install" in options:
     mkdir -p /usr/share/ca-certificates/mozilla
     ``
     
-    # get the proper ca certificate for eduroam
-    # mirrored on my gist
-    print "downloading eduroam certificate..."
-    `wget -O /usr/share/ca-certificates/mozilla/Eduroam.crt https://gist.github.com/Paamayim/7320160/raw/f4ce4ca43dc0a093528cbd22b22a76db69726245/eduroam`
+    # install the ca certificate for eduroam
+    print "installing eduroam certificate..."
+    certificate = """
+-----BEGIN CERTIFICATE-----
+MIIDdTCCAl2gAwIBAgILBAAAAAABFUtaw5QwDQYJKoZIhvcNAQEFBQAwVzELMAkG
+A1UEBhMCQkUxGTAXBgNVBAoTEEdsb2JhbFNpZ24gbnYtc2ExEDAOBgNVBAsTB1Jv
+b3QgQ0ExGzAZBgNVBAMTEkdsb2JhbFNpZ24gUm9vdCBDQTAeFw05ODA5MDExMjAw
+MDBaFw0yODAxMjgxMjAwMDBaMFcxCzAJBgNVBAYTAkJFMRkwFwYDVQQKExBHbG9i
+YWxTaWduIG52LXNhMRAwDgYDVQQLEwdSb290IENBMRswGQYDVQQDExJHbG9iYWxT
+aWduIFJvb3QgQ0EwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDaDuaZ
+jc6j40+Kfvvxi4Mla+pIH/EqsLmVEQS98GPR4mdmzxzdzxtIK+6NiY6arymAZavp
+xy0Sy6scTHAHoT0KMM0VjU/43dSMUBUc71DuxC73/OlS8pF94G3VNTCOXkNz8kHp
+1Wrjsok6Vjk4bwY8iGlbKk3Fp1S4bInMm/k8yuX9ifUSPJJ4ltbcdG6TRGHRjcdG
+snUOhugZitVtbNV4FpWi6cgKOOvyJBNPc1STE4U6G7weNLWLBYy5d4ux2x8gkasJ
+U26Qzns3dLlwR5EiUWMWea6xrkEmCMgZK9FGqkjWZCrXgzT/LCrBbBlDSgeF59N8
+9iFo7+ryUp9/k5DPAgMBAAGjQjBAMA4GA1UdDwEB/wQEAwIBBjAPBgNVHRMBAf8E
+BTADAQH/MB0GA1UdDgQWBBRge2YaRQ2XyolQL30EzTSo//z9SzANBgkqhkiG9w0B
+AQUFAAOCAQEA1nPnfE920I2/7LqivjTFKDK1fPxsnCwrvQmeU79rXqoRSLblCKOz
+yj1hTdNGCbM+w6DjY1Ub8rrvrTnhQ7k4o+YviiY776BQVvnGCv04zcQLcFGUl5gE
+38NflNUVyRRBnMRddWQVDf9VMOyGj/8N7yy5Y0b2qvzfvGn9LhJIZJrglfCm7ymP
+AbEVtQwdpf5pLGkkeB6zpxxxYu7KyJesF12KwvhHhm4qxFYxldBniYUr+WymXUad
+DKqC5JlR3XC321Y9YeRq4VzW9v493kHMB65jUr9TU/Qr6cf9tveCX4XSQRjbgbME
+HMUfpIBvFSDJ3gyICh3WZlXi/EjJKSZp4A==
+-----END CERTIFICATE-----"""
+
+    write_file("/usr/share/ca-certificates/mozilla/Eduroam.crt", certificate)
     
     # create a hash of your password so we don't keep it in plaintext
     password = options["pass"]
@@ -49,22 +71,43 @@ network={
       password=hash:%s
 }""" % (options["user"], password)
     
-    confFile = open("/etc/wpa_supplicant.conf", "w")
-    confFile.write(conf)
-    confFile.close()
+    write_file("/etc/wpa_supplicant.conf", conf)
+    
+    
+    # the iwlwifi driver has a bug that breaks eduroam
+    print "checking for iwlwifi..."
+    if len(`lsmod | grep iwl`) > len("iwlwifi"):
+        print "iwlwifi found"
+        print "patching iwlwifi"
+        
+        # unload iwlwifi module
+        ``
+        pkill dhclient
+        rmmod iwldvm iwlwifi
+        ``
+        
+        # remove 11n mode, enable swcrypto
+        iwlWifi = "options iwlwifi auto_agg=0 wd_disable=1 11n_disable=1 swcrypto=1\n"
+        write_file("/etc/modprobe.d/iwlwifi.conf", iwlWifi)
+        
+        # reload module
+        `modprobe iwlwifi`
+    
 
-    print "finished install of eduroam"
+    print "finished install of eduroam!\n"
+    print "run again without the --install flag to connect"
     exit(0)
 
 
-if not os.path.exists("/usr/share/ca-certificates/mozilla/Eduroam.crt"):
+if not path_exists("/usr/share/ca-certificates/mozilla/Eduroam.crt"):
     usage()
 
 
 # Connect in a different process, so we can return
 if os.fork() == 0:
     ``
-    pkill dhcpcd
+    service networking stop
+    pkill dhclient
     pkill wpa_supplicant
     sleep 1s
     ``
