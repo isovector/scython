@@ -18,11 +18,13 @@ def getFiles(dir):
 
 def syncFiles(aloc, bloc, files):
     for file in files:
-        alocLoc = aloc+file
-        blocLoc = bloc+file
-        newPath = os.path.dirname(blocLoc)
+        newPath = pipes.quote(os.path.dirname(bloc+file))
+    
+        alocLoc = pipes.quote(aloc+file)
+        blocLoc = pipes.quote(bloc+file)
+
         `mkdir -p ${newPath}`
-        print `cp -v '${alocLoc}' '${blocLoc}'`
+        print `cp -v ${alocLoc} ${blocLoc}`
     
 (aloc, alocFiles) = getFiles(aloc)
 (bloc, blocFiles) = getFiles(bloc)
@@ -32,3 +34,5 @@ blocToAlocFiles = [f for f in alocFiles+blocFiles if (f not in alocFiles) and (f
 
 syncFiles(aloc, bloc, alocToBlocFiles)
 syncFiles(bloc, aloc, blocToAlocFiles)
+
+`sync`
