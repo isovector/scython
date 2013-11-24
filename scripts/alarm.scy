@@ -1,13 +1,49 @@
 #!/usr/local/bin/scython
 
-(sleep, alarm_h, alarm_m) = args >>= "%d %d:%d"
+pragma:
+    options:
+        "duration"
 
-def trap_ctrl_c():
+(sleep, time) = args >>= "%d %s"
+sleep = int(sleep)
+
+def trap_ctrl_c(*args):
     ``
     xset dpms force on
     xset -dpms
     ``
     exit()
+
+(now_h, now_m) = `date +%R` >>= "%d:%d"
+bits = time.split(":")
+
+duration = 0
+if "duration" in options:
+    duration = int(bits[0]) * 60 + int(bits[1]) + sleep
+    
+    now_m += duration
+    
+    while now_m >= 60:
+        now_h += 1
+        now_m -= 60
+    now_h %= 24
+    
+    print "time to wake is %s:%s" % (now_h, now_m)
+    
+else:
+    hours = int(bits[0]) - int(now_h)
+    minutes = int(bits[1]) - int(now_m) - sleep
+    
+    while hours < 0 or (hours == 0 and minutes < 0):
+        hours += 24
+        
+    while minutes < 0:
+        hours -= 1
+        minutes += 60
+   
+    duration = hours * 60 + minutes
+    
+    print "duration of sleep is %sh %sm" % (hours, minutes)
 
 ``
 sleep "${sleep}m"
@@ -15,16 +51,7 @@ cmus-remote -s
 pkill plugin
 pkill firefox
 xset dpms force standby
-``
-
-while True:
-    (now_h, now_m) = `date +%R` >>= "%d:%d"
-    if alarm_h == now_h and alarm_m == now_m:
-        break
-    
-    `sleep 59s`
-
-``
+sleep ${duration}m
 xset dpms force on
 xset -dpms
 cmus-remote -p
