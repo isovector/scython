@@ -1,0 +1,26 @@
+#!/usr/local/bin/scython
+
+pragma:
+    options:
+        "token="
+        "slug="
+        "value="
+        "comment="
+        
+if not "token" in options or not "slug" in options:
+    exit(1)
+    
+token = options["token"]
+timestamp = `date +%s`
+
+value = 1
+if "value" in options:
+    value = float(options["value"])
+
+comment = ""
+if "comment" in options:
+    comment = "&comment=" + options["comment"].replace(" ", "+")
+    
+slug = options["slug"]
+
+`curl --data 'auth_token=${token}&timestamp=${timestamp}&value=${value}${comment}' https://www.beeminder.com/api/v1/users/me/goals/${slug}/datapoints.json`
