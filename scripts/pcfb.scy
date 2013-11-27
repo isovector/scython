@@ -52,71 +52,85 @@ def check_none(sql):
 
 # ----------------------------------------------------------
 
-def show():
+def showDay(day, time, percentile):
     secondsPerHour = 3600.0
-    now = int(`date +%s`)
-
-    c.execute("SELECT strftime('%s', hello), strftime('%s', day) FROM waking WHERE day == date('now')")
-    result = c.fetchone()
+    c.execute("SELECT strftime('%s', datetime('now', 'localtime'))")
+    now = int(c.fetchone()[0])
     
-    dayStart = int(result[1])
-    helloTime = int(result[0])
-    
-    print (helloTime) / 3600 / 24 / 365
-    print helloTime
-    
+    dayStart = int(day[2])
+    helloTime = int(day[0]) - int(day[1])
+    helloTime += dayStart
 
     cursor = c.execute("""  SELECT  strftime('%s',start), 
                                     strftime('%s',end)
-                            FROM stretch WHERE date(start) == date('now')
-                        """)
-    timePoints = []
-    percentilePoints = []
+                            FROM stretch WHERE date(start) == date(?, 'unixepoch')
+                        """, [dayStart])
     cumulative = 0.0
     
     for row in cursor:
         start = int(row[0])
         end = now
         
-        percentilePoints.append(100 * cumulative / (start - helloTime))
+        percentile.append(100 * cumulative / (start - helloTime + 1))
         
         if row[1] != None:
             end = int(row[1])
             
         cumulative += end - start
     
-        timePoints.append((start - dayStart) / secondsPerHour)
-        timePoints.append((end - dayStart) / secondsPerHour)
+        time.append((start - dayStart) / secondsPerHour)
+        time.append((end - dayStart) / secondsPerHour)
         
-        percentilePoints.append(100 * cumulative / (end - helloTime))
-        
+        percentile.append(100 * cumulative / (end - helloTime + 1))
+
+def showOtherDays(time, percentile):
+    days = c.execute("SELECT strftime('%s', hello), strftime('%s', hello, 'start of day'), strftime('%s', day) FROM waking WHERE day != date('now', 'localtime')")
+    for day in days:
+        showDay(day, time, percentile)
+
+
+def show():
+    c.execute("SELECT strftime('%s', hello), strftime('%s', hello, 'start of day'), strftime('%s', day) FROM waking WHERE day == date('now', 'localtime')")
+    day = c.fetchone()
+
+    todayTime = []
+    todayPerc = []
+    showDay(day, todayTime, todayPerc)
     
-    plt.plot(timePoints, percentilePoints, marker='o', linestyle='-', color='r')
-    plt.xlim([0, 24])
+    otherTime = []
+    otherPerc = []
+    showOtherDays(otherTime, otherPerc)
+    
+    plt.plot(todayTime, todayPerc, marker='o', linestyle='-', color='r')
+    plt.hold(True)
+    plt.plot(otherTime, otherPerc, 'go')
+    
+    plt.gca().xaxis.set_major_locator( plt.MaxNLocator(nbins = 23, prune = 'lower') )
+    plt.xlim([0, 23])
     plt.ylim([0, 100])
-    #plt.show()
+    plt.show()
     
 
 # -----------------------------------------------------------
 
 def hello():
-    if not check_none("SELECT * FROM waking WHERE day = date('now')"):
+    if not check_none("SELECT * FROM waking WHERE day = date('now', 'localtime')"):
         exit("error: hello already exists for today")
         
-    c.execute("INSERT INTO waking VALUES (date('now'), time('now'))")
+    c.execute("INSERT INTO waking VALUES (date('now', 'localtime'), time('now', 'localtime'))")
     conn.commit()
         
     print "hello"
     
     
 def start():
-    if check_none("SELECT * FROM waking WHERE day = date('now')"):
+    if check_none("SELECT * FROM waking WHERE day = date('now', 'localtime')"):
         hello()
     
     if not check_none("SELECT * FROM stretch WHERE end IS NULL"):
         exit("error: already started")
     
-    c.execute("INSERT INTO stretch VALUES (NULL, datetime('now'), NULL)")
+    c.execute("INSERT INTO stretch VALUES (NULL, datetime('now', 'localtime'), NULL)")
     conn.commit()
     
     print "started"
@@ -126,7 +140,7 @@ def end():
     if check_none("SELECT * FROM stretch WHERE end IS NULL"):
         exit("error: not started")
         
-    c.execute("UPDATE stretch SET end = datetime('now') WHERE end IS NULL")
+    c.execute("UPDATE stretch SET end = datetime('now', 'localtime') WHERE end IS NULL")
     conn.commit()
     
     print "ended"
