@@ -12,6 +12,8 @@ if "help" in options:
 
 
 import sqlite3
+import matplotlib.pyplot as plt
+
 conn = sqlite3.connect("%s.pcfb.db" % homedir)
 c = conn.cursor()
 
@@ -45,10 +47,55 @@ if "install" in options:
 # -----------------------------------------------------------
 
 def check_none(sql):
-    global c
-    
     c.execute(sql)
     return c.fetchone() == None
+
+# ----------------------------------------------------------
+
+def show():
+    secondsPerHour = 3600.0
+    now = int(`date +%s`)
+
+    c.execute("SELECT strftime('%s', hello), strftime('%s', day) FROM waking WHERE day == date('now')")
+    result = c.fetchone()
+    
+    dayStart = int(result[1])
+    helloTime = int(result[0])
+    
+    print (helloTime) / 3600 / 24 / 365
+    print helloTime
+    
+
+    cursor = c.execute("""  SELECT  strftime('%s',start), 
+                                    strftime('%s',end)
+                            FROM stretch WHERE date(start) == date('now')
+                        """)
+    timePoints = []
+    percentilePoints = []
+    cumulative = 0.0
+    
+    for row in cursor:
+        start = int(row[0])
+        end = now
+        
+        percentilePoints.append(100 * cumulative / (start - helloTime))
+        
+        if row[1] != None:
+            end = int(row[1])
+            
+        cumulative += end - start
+    
+        timePoints.append((start - dayStart) / secondsPerHour)
+        timePoints.append((end - dayStart) / secondsPerHour)
+        
+        percentilePoints.append(100 * cumulative / (end - helloTime))
+        
+    
+    plt.plot(timePoints, percentilePoints, marker='o', linestyle='-', color='r')
+    plt.xlim([0, 24])
+    plt.ylim([0, 100])
+    #plt.show()
+    
 
 # -----------------------------------------------------------
 
@@ -92,5 +139,7 @@ elif args == "end":
     end()
 elif args == "hello":
     hello()
+elif args == "show":
+    show()
 else:    
     exit("unknown command '%s'" % args)
