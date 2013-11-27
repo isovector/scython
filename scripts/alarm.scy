@@ -55,4 +55,5 @@ sleep ${duration}m
 xset dpms force on
 xset -dpms
 cmus-remote -p
+pcfb hello
 ``

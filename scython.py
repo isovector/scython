@@ -3,6 +3,7 @@ import re, sys, os
 
 code = r'''#!/usr/bin/python2
 from sys import *
+from os.path import expanduser
 import string, subprocess, re, getopt, signal, os, pipes
 
 script_name = argv[1]
@@ -11,6 +12,8 @@ args = string.join(argv[2:])
 __scython_dry_run = False
 
 uid = os.getuid()
+
+homedir = expanduser("~") + "/"
 
 def read_file(filename):
     with open(filename) as file:
@@ -71,7 +74,7 @@ def __scython_get_options(os):
         else:
             options[opt] = val
             
-    args = string.join(argv[1:])
+    args = string.join(argv[2:])
 
 def __scython_unpacker(format, haystack):
     formatTypes = {

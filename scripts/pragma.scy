@@ -1,8 +1,0 @@
-#!/usr/local/bin/scython
-
-pragma:
-    require sudo
-    options:
-        "h|hello", "set s"
-
-print options["hello"]

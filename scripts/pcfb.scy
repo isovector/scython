@@ -1,0 +1,96 @@
+#!/usr/local/bin/scython
+
+pragma:
+    options:
+        "drop"
+        "install"
+        "help"
+
+if "help" in options:
+    print "help message here"
+    exit()
+
+
+import sqlite3
+conn = sqlite3.connect("%s.pcfb.db" % homedir)
+c = conn.cursor()
+
+# -----------------------------------------------------------
+
+if "install" in options:
+    if "drop" in options:
+        c.execute("DROP TABLE stretch")
+        c.execute("DROP TABLE waking")
+    
+    c.execute("""
+    CREATE TABLE stretch (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        start DATETIME NOT NULL,
+        end DATETIME
+    )
+    """)
+    
+    c.execute("""
+    CREATE TABLE waking (
+        day DATE PRIMARY KEY,
+        hello TIME
+    )
+    """)
+    
+    conn.commit()
+    
+    print "done"
+    exit()
+
+# -----------------------------------------------------------
+
+def check_none(sql):
+    global c
+    
+    c.execute(sql)
+    return c.fetchone() == None
+
+# -----------------------------------------------------------
+
+def hello():
+    if not check_none("SELECT * FROM waking WHERE day = date('now')"):
+        exit("error: hello already exists for today")
+        
+    c.execute("INSERT INTO waking VALUES (date('now'), time('now'))")
+    conn.commit()
+        
+    print "hello"
+    
+    
+def start():
+    if check_none("SELECT * FROM waking WHERE day = date('now')"):
+        hello()
+    
+    if not check_none("SELECT * FROM stretch WHERE end IS NULL"):
+        exit("error: already started")
+    
+    c.execute("INSERT INTO stretch VALUES (NULL, datetime('now'), NULL)")
+    conn.commit()
+    
+    print "started"
+
+    
+def end():
+    if check_none("SELECT * FROM stretch WHERE end IS NULL"):
+        exit("error: not started")
+        
+    c.execute("UPDATE stretch SET end = datetime('now') WHERE end IS NULL")
+    conn.commit()
+    
+    print "ended"
+
+# -----------------------------------------------------------
+
+if args == "start":
+    start()
+elif args == "end":
+    end()
+elif args == "hello":
+    hello()
+else:    
+    exit("unknown command '%s'" % args)
