@@ -11,8 +11,10 @@ if "help" in options:
     exit()
 
 
-import sqlite3
+import sqlite3, matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+
 
 conn = sqlite3.connect("%s.pcfb.db" % homedir)
 c = conn.cursor()
@@ -112,14 +114,16 @@ def show():
     otherPerc = []
     showOtherDays(otherTime, otherPerc)
     
+    plt.figure(figsize=(3.5, 2))
     plt.plot(todayTime, todayPerc, color='r', linewidth=3.0)
     plt.hold(True)
     plt.plot(otherTime, otherPerc, 'go')
     
-    plt.gca().xaxis.set_major_locator( plt.MaxNLocator(nbins = 24, prune = 'lower') )
+    plt.gca().xaxis.set_major_locator( plt.MaxNLocator(nbins = 6) )
+    plt.gca().yaxis.set_major_locator( plt.MaxNLocator(nbins = 5, prune = 'lower') )
     plt.xlim([0, 24])
     plt.ylim([0, 100])
-    plt.show()
+    plt.savefig("/tmp/pcfb.png", transparent=True)
     
 
 # -----------------------------------------------------------
