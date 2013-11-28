@@ -11,7 +11,7 @@ if "help" in options:
     exit()
 
 
-import sqlite3, matplotlib
+import sqlite3, matplotlib, math
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
@@ -100,9 +100,8 @@ def showOtherDays(time, percentile):
     days = c.execute("SELECT strftime('%s', hello), strftime('%s', hello, 'start of day'), strftime('%s', day) FROM waking WHERE day != date('now', 'localtime')")
     for day in days:
         showDay(day, time, percentile)
-
-
-def show():
+        
+def getToday():
     c.execute("SELECT strftime('%s', hello), strftime('%s', hello, 'start of day'), strftime('%s', day) FROM waking WHERE day == date('now', 'localtime')")
     day = c.fetchone()
 
@@ -110,23 +109,35 @@ def show():
     todayPerc = []
     showDay(day, todayTime, todayPerc)
     
+    return (todayTime, todayPerc)
+
+
+def show():
+    (todayTime, todayPerc) = getToday()
+    
     otherTime = []
     otherPerc = []
     showOtherDays(otherTime, otherPerc)
     
-    plt.figure(figsize=(3.5, 2))
-    plt.plot(todayTime, todayPerc, color='r', linewidth=3.0)
+    plt.figure(figsize=(4.5, 2))
+    plt.plot(todayTime, todayPerc, color='r', linewidth=2.0)
     plt.hold(True)
-    plt.plot(otherTime, otherPerc, 'go')
+    plt.plot(otherTime, otherPerc, 'go', markersize = 3, mec = 'g')
     
     plt.gca().xaxis.set_major_locator( plt.MaxNLocator(nbins = 6) )
     plt.gca().yaxis.set_major_locator( plt.MaxNLocator(nbins = 5, prune = 'lower') )
+    plt.gca().grid(True)
     plt.xlim([0, 24])
     plt.ylim([0, 100])
     plt.savefig("/tmp/pcfb.png", transparent=True)
     
 
 # -----------------------------------------------------------
+
+def percentile():
+    (time, perc) = getToday()
+    print int(math.ceil(perc[-1] - 0.5))
+    
 
 def hello():
     if not check_none("SELECT * FROM waking WHERE day = date('now', 'localtime')"):
@@ -170,5 +181,7 @@ elif args == "hello":
     hello()
 elif args == "show":
     show()
+elif args == "percentile":
+    percentile()
 else:    
     exit("unknown command '%s'" % args)
