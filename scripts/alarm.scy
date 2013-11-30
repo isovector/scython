@@ -54,6 +54,7 @@ xset dpms force standby
 sleep ${duration}m
 xset dpms force on
 xset -dpms
+cmus-remote -C "live-filter einaudi"
 cmus-remote -p
 pcfb hello
 ``

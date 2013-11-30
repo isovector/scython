@@ -177,13 +177,18 @@ def stop():
     hello = getHelloFromId(start[1])
     
     time = now()
-    perc = getPercentile(hello, time - start[0])
+    duration = time - start[0]
+    perc = getPercentile(hello, duration)
         
     c.execute("UPDATE stretch SET stop = ?, stopPerc = ? WHERE stop IS NULL", (time, perc))
     conn.commit()
     
-    print "stop"
-    
+    print "stopped: %d (%f)" % (duration, perc)
+
+def percentile():
+    lastHello = getLastHello()
+    (x, y) = getShowData(lastHello, shownow = True)
+    print(max(int(math.ceil(y[-1] * 100 - 0.5)), 0))
     
 def show():
     lastHello = getLastHello()
