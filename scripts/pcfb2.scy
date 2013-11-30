@@ -188,7 +188,7 @@ def stop():
 def percentile():
     lastHello = getLastHello()
     (x, y) = getShowData(lastHello, shownow = True)
-    print(max(int(math.ceil(y[-1] * 100 - 0.5)), 0))
+    print(max(int(math.ceil(y[-1] - 0.5)), 0))
     
 def show():
     lastHello = getLastHello()
