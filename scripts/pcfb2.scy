@@ -1,0 +1,221 @@
+#!/usr/local/bin/scython
+
+pragma:
+    options:
+        "drop"
+        "install"
+        "help"
+
+if "help" in options:
+    print "help message here"
+    exit()
+
+
+import datetime
+import sqlite3, matplotlib, math
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+
+conn = sqlite3.connect("%s.pcfb2.db" % homedir)
+c = conn.cursor()
+
+# -----------------------------------------------
+
+if "install" in options:
+    if "drop" in options:
+        c.execute("DROP TABLE stretch")
+        c.execute("DROP TABLE hello")
+    
+    c.execute("""
+    CREATE TABLE stretch (
+        sid INTEGER PRIMARY KEY AUTOINCREMENT,
+        hello INTEGER NOT NULL,
+        
+        start INTEGER NOT NULL,
+        startPerc REAL NOT NULL,
+        
+        stop INTEGER,
+        stopPerc REAL,
+        
+        FOREIGN KEY(hello) REFERENCES hello(hid)
+    )
+    """)
+    
+    c.execute("""
+    CREATE TABLE hello (
+        hid INTEGER PRIMARY KEY AUTOINCREMENT,
+        checkin INTEGER NOT NULL
+    )
+    """)
+    
+    conn.commit()
+    
+    print "done"
+    exit()
+    
+# -----------------------------------------------
+
+def now():
+    return int(`date +%s`)
+
+def getHelloFromId(id):
+    c.execute("SELECT * FROM hello WHERE hid = ?", [id])
+    return c.fetchone()
+
+def getLastHello():
+    c.execute("SELECT * FROM hello ORDER BY checkin DESC LIMIT 1")
+    return c.fetchone()
+    
+def getHelloWorked(hello):
+    timeWorked = 0
+    
+    rows = c.execute("SELECT start, stop FROM stretch WHERE hello = ? AND stop IS NOT NULL", [hello[0]])
+    for row in rows:
+        timeWorked += row[1] - row[0]
+        
+    return timeWorked
+    
+def isHelloValid(hello):
+    return hello != None and now() - hello[1] < 3600 * 18
+    
+def getActiveStart():
+    c.execute("SELECT start, hello FROM stretch WHERE stop IS NULL")
+    row = c.fetchone()
+    if row == None:
+        return False
+        
+    return row
+    
+def getPercentile(hello, offset = 0):
+    worked = getHelloWorked(hello) + offset
+    duration = float(now() - hello[1] + 1)
+    return worked / duration
+
+# -----------------------------------------------
+
+def getShowData(hello, shownow = False):
+    x = []
+    y = []
+    
+    dayStart = int(datetime.date.fromtimestamp(hello[1]).strftime("%s"))
+    secsPerHour = 3600.0
+    
+    rows = c.execute("SELECT start, startPerc, stop, stopPerc FROM stretch WHERE hello = ?", [hello[0]])
+    for row in rows:
+        x.append((row[0] - dayStart) / secsPerHour)
+        y.append(row[1] * 100)
+        
+        if row[2] != None:
+            x.append((row[2] - dayStart) / secsPerHour)
+            y.append(row[3] * 100)
+        
+    if shownow:
+        start = getActiveStart()
+        offset = 0 if not start else (now() - start[0])
+        
+        x.append((now() - dayStart) / secsPerHour)
+        y.append(getPercentile(hello, offset) * 100)
+        
+    return (x, y)
+    
+def getOtherDaysShowData(hello):
+    x = []
+    y = []
+    
+    rows = c.execute("SELECT * FROM hello WHERE hid != ?", [hello[0]])
+    for row in rows:
+        (dx, dy) = getShowData(row)
+        
+        x += dx
+        y += dy
+        
+    return (x, y)
+    
+# -----------------------------------------------
+
+def hello(forceData = False):
+    lastHello = getLastHello()
+    if isHelloValid(lastHello):
+        c.execute("SELECT * FROM stretch WHERE hello = ?", [lastHello[0]])
+        if c.fetchone() != None:
+            exit("error: too soon")
+                
+    time = now()
+    c.execute("INSERT INTO hello VALUES (NULL, ?)", [time])
+    conn.commit()
+    
+    print "hello: %d" % time
+    
+    if forceData:
+        start()
+        stop()
+        
+    return getLastHello()
+    
+    
+def start():
+    if getActiveStart():
+        exit("error: already started")
+    
+    lastHello = getLastHello()
+    if not isHelloValid(lastHello):
+        lastHello = hello()
+    
+    perc = getPercentile(lastHello)
+    
+    c.execute("INSERT INTO stretch VALUES (NULL, ?, ?, ?, NULL, NULL)", (lastHello[0], now(), perc))
+    conn.commit()
+    
+    print "started"
+
+    
+def stop():
+    start = getActiveStart()
+    if not start:
+        exit("error: not started")
+        
+    hello = getHelloFromId(start[1])
+    
+    time = now()
+    perc = getPercentile(hello, time - start[0])
+        
+    c.execute("UPDATE stretch SET stop = ?, stopPerc = ? WHERE stop IS NULL", (time, perc))
+    conn.commit()
+    
+    print "stop"
+    
+    
+def show():
+    lastHello = getLastHello()
+    (x, y) = getShowData(lastHello, shownow = True)
+    
+    plt.figure(figsize=(4.5, 2))
+    plt.plot(x, y, color='r', linewidth=2.0)
+    plt.hold(True)
+    
+    (x, y) = getOtherDaysShowData(lastHello)
+    plt.plot(x, y, 'go', markersize = 3, mec = 'g')
+    
+    plt.gca().xaxis.set_major_locator( plt.MaxNLocator(nbins = 6) )
+    plt.gca().yaxis.set_major_locator( plt.MaxNLocator(nbins = 5, prune = 'lower') )
+    plt.gca().grid(True)
+    plt.xlim([0, 24])
+    plt.ylim([0, 100])
+    plt.savefig("/tmp/pcfb.png", transparent=True)
+
+# -----------------------------------------------
+
+if args == "start":
+    start()
+elif args == "stop":
+    stop()
+elif args == "hello":
+    hello(True)
+elif args == "wake":
+    hello(False)
+elif args == "show":
+    show()
+elif args == "percentile":
+    percentile()
+else: 
+    exit("unknown command '%s'" % args)
