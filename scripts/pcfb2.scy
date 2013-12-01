@@ -122,7 +122,6 @@ def getOtherDaysShowData(hello):
     x = []
     y = []
     
-    print(hello[0])
     rows = c.execute("SELECT * FROM hello WHERE hid != ? ORDER BY hid DESC", [hello[0]])
     for row in rows:
         (dx, dy) = getShowData(row)
