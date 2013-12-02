@@ -13,7 +13,7 @@ __scython_dry_run = False
 
 uid = os.getuid()
 
-homedir = expanduser("~") + "/"
+HOME = expanduser("~") + "/"
 
 def read_file(filename):
     with open(filename) as file:

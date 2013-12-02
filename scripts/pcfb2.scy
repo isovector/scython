@@ -16,7 +16,7 @@ import sqlite3, matplotlib, math
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
-conn = sqlite3.connect("%s.pcfb2.db" % homedir)
+conn = sqlite3.connect("%s.pcfb2.db" % HOME)
 c = conn.cursor()
 
 # -----------------------------------------------
@@ -100,8 +100,8 @@ def getShowData(hello, shownow = False):
     dayStart = int(datetime.date.fromtimestamp(hello[1]).strftime("%s"))
     secsPerHour = 3600.0
     
-    rows = c.execute("SELECT start, startPerc, stop, stopPerc FROM stretch WHERE hello = ?", [hello[0]])
-    for row in rows:
+    c.execute("SELECT start, startPerc, stop, stopPerc FROM stretch WHERE hello = ?", [hello[0]])
+    for row in c.fetchall():
         x.append((row[0] - dayStart) / secsPerHour)
         y.append(row[1] * 100)
         
@@ -119,17 +119,17 @@ def getShowData(hello, shownow = False):
     return (x, y)
     
 def getOtherDaysShowData(hello):
-    x = []
-    y = []
+    results = []
     
-    rows = c.execute("SELECT * FROM hello WHERE hid != ? ORDER BY hid DESC", [hello[0]])
-    for row in rows:
-        (dx, dy) = getShowData(row)
+    c.execute("SELECT * FROM hello WHERE hid != ? ORDER BY hid DESC", [hello[0]])
+    for row in c.fetchall():
+        (x, y) = getShowData(row)
+        results.append((x, y));
         
-        x += dx
-        y += dy
-        
-    return (x, y)
+    return results
+    
+def normalizeDay(time, first):
+    return map(lambda x: x - first, time)
     
 # -----------------------------------------------
 
@@ -193,13 +193,23 @@ def percentile():
 def show():
     lastHello = getLastHello()
     (x, y) = getShowData(lastHello, shownow = True)
+    firstX = x[0]
     
+    x = normalizeDay(x, firstX)
     plt.figure(figsize=(4.5, 2))
     plt.plot(x, y, color='r', linewidth=2.0)
     plt.hold(True)
     
-    (x, y) = getOtherDaysShowData(lastHello)
-    plt.plot(x, y, 'go', markersize = 3, mec = 'g')
+    green = 255
+    days = getOtherDaysShowData(lastHello)
+    delta = max(green / len(days), 1)
+    for day in days:
+        (x, y) = day
+        x = normalizeDay(x, firstX)
+        
+        color = "#%s" % hex(green << 8)[2:].rjust(6, '0')
+        plt.plot(x, y, 'o', markersize = 3, color = color, mec = color)
+        green -= delta
     
     plt.gca().xaxis.set_major_locator( plt.MaxNLocator(nbins = 6) )
     plt.gca().yaxis.set_major_locator( plt.MaxNLocator(nbins = 5, prune = 'lower') )
