@@ -47,6 +47,7 @@ else:
 
 ``
 sleep "${sleep}m"
+pcfb stop
 cmus-remote -s
 pkill plugin
 pkill firefox
@@ -55,6 +56,6 @@ sleep ${duration}m
 xset dpms force on
 xset -dpms
 cmus-remote -C "live-filter einaudi"
-cmus-remote -p
+cmus-remote -n
 pcfb hello
 ``
