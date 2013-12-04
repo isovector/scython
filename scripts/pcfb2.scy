@@ -211,7 +211,7 @@ def show():
         plt.plot(x, y, 'o', markersize = 3, color = color, mec = color)
         green -= delta
     
-    plt.gca().xaxis.set_major_locator( plt.MaxNLocator(nbins = 6) )
+    plt.gca().xaxis.set_major_locator( plt.MaxNLocator(nbins = 12) )
     plt.gca().yaxis.set_major_locator( plt.MaxNLocator(nbins = 5, prune = 'lower') )
     plt.gca().grid(True)
     plt.xlim([0, 24])

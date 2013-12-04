@@ -57,5 +57,6 @@ xset dpms force on
 xset -dpms
 cmus-remote -C "live-filter einaudi"
 cmus-remote -n
+cmus-remote -u
 pcfb hello
 ``
