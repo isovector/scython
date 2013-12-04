@@ -121,10 +121,12 @@ def getShowData(hello, shownow = False):
 def getOtherDaysShowData(hello):
     results = []
     
-    c.execute("SELECT * FROM hello WHERE hid != ? ORDER BY hid DESC", [hello[0]])
+    c.execute("SELECT * FROM hello WHERE hid != ? ORDER BY hid ASC", [hello[0]])
     for row in c.fetchall():
         (x, y) = getShowData(row)
-        results.append((x, y));
+        
+        if len(x) > 1:
+            results.append((x, y));
         
     return results
     
@@ -185,11 +187,13 @@ def stop():
     
     print "stopped: %d (%f)" % (duration, perc)
 
+
 def percentile():
     lastHello = getLastHello()
     (x, y) = getShowData(lastHello, shownow = True)
     print(max(int(math.ceil(y[-1] - 0.5)), 0))
-    
+
+
 def show():
     lastHello = getLastHello()
     (x, y) = getShowData(lastHello, shownow = True)
@@ -200,16 +204,16 @@ def show():
     plt.plot(x, y, color='r', linewidth=2.0)
     plt.hold(True)
     
-    green = 255
     days = getOtherDaysShowData(lastHello)
-    delta = max(green / len(days), 1)
+    delta = max(255 / len(days), 1)
+    green = delta
     for day in days:
         (x, y) = day
         x = normalizeDay(x, firstX)
         
         color = "#%s" % hex(green << 8)[2:].rjust(6, '0')
         plt.plot(x, y, 'o', markersize = 3, color = color, mec = color)
-        green -= delta
+        green += delta
     
     plt.gca().xaxis.set_major_locator( plt.MaxNLocator(nbins = 12) )
     plt.gca().yaxis.set_major_locator( plt.MaxNLocator(nbins = 5, prune = 'lower') )
