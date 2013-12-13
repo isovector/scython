@@ -9,7 +9,8 @@ sleep = int(sleep)
 
 def trap_ctrl_c(*args):
     ``
-    xset dpms force on
+    xset s noblank
+    xset s off
     xset -dpms
     ``
     exit()
@@ -53,10 +54,10 @@ pkill plugin
 pkill firefox
 xset dpms force standby
 sleep ${duration}m
-xset dpms force on
-xset -dpms
 cmus-remote -C "live-filter einaudi"
 cmus-remote -n
 cmus-remote -u
 pcfb hello
 ``
+
+trap_ctrl_c()

@@ -75,8 +75,8 @@ def getHelloWorked(hello):
         
     return timeWorked
     
-def isHelloValid(hello):
-    return hello != None and now() - hello[1] < 3600 * 18
+def isHelloValid(hello, hours = 18):
+    return hello != None and now() - hello[1] < 3600 * hours
     
 def getActiveStart():
     c.execute("SELECT start, hello FROM stretch WHERE stop IS NULL")
@@ -160,7 +160,9 @@ def start():
         exit("error: already started")
     
     lastHello = getLastHello()
-    if not isHelloValid(lastHello):
+
+    # only force hello if it has been longer than 24 hours since the last one
+    if not isHelloValid(lastHello, 24):
         lastHello = hello()
     
     perc = getPercentile(lastHello)
