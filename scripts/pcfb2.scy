@@ -193,13 +193,13 @@ def stop():
 def percentile():
     lastHello = getLastHello()
     (x, y) = getShowData(lastHello, shownow = True)
-    print(max(int(math.ceil(y[-1] - 0.5)), 0))
+    print(int(round(y[-1], 2)))
 
 
-def show():
+def show(showType = "day"):
     lastHello = getLastHello()
     (x, y) = getShowData(lastHello, shownow = True)
-    firstX = x[0]
+    firstX = x[0] if showType == "hello" else 0
     
     x = normalizeDay(x, firstX)
     plt.figure(figsize=(4.5, 2))
@@ -226,17 +226,17 @@ def show():
 
 # -----------------------------------------------
 
-if args == "start":
+if argv[0] == "start":
     start()
-elif args == "stop":
+elif argv[0] == "stop":
     stop()
-elif args == "hello":
+elif argv[0] == "hello":
     hello(True)
-elif args == "wake":
+elif argv[0] == "wake":
     hello(False)
-elif args == "show":
-    show()
-elif args == "percentile":
+elif argv[0] == "show":
+    show("day")
+elif argv[0] == "percentile":
     percentile()
 else: 
     exit("unknown command '%s'" % args)
