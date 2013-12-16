@@ -1,19 +1,13 @@
 #!/usr/bin/python2
 import re, sys, os
-
-code = r'''#!/usr/bin/python2
 from sys import *
 from os.path import expanduser
 import string, subprocess, re, getopt, signal, os, pipes
 
-script_name = argv[1]
-args = string.join(argv[2:])
+
+# preamble starts here
 
 __scython_dry_run = False
-
-uid = os.getuid()
-
-HOME = expanduser("~") + "/"
 
 def read_file(filename):
     with open(filename) as file:
@@ -74,7 +68,7 @@ def __scython_get_options(os):
         else:
             options[opt] = val
             
-    args = string.join(argv[2:])
+    args = string.join(argv)
 
 def __scython_unpacker(format, haystack):
     formatTypes = {
@@ -107,7 +101,6 @@ def __scython_call(cmd, wantReturnCode):
         return output if not wantReturnCode else True
     except subprocess.CalledProcessError:
         return False
-'''
 
 class BlockParser:
     def __init__(self, blockName):
@@ -169,10 +162,14 @@ class BlockParser:
     def getHook(self, hook):
         return self.pragmas[hook]
 
-file = open(sys.argv[1])
-trappingCtrlC = False
-inHereDoc = False
-inPragma = False
+# preamble ends
+
+__host_code = "#!/usr/bin/python2\n"
+
+__host_file = open(sys.argv[1])
+__host_ctrlTrap = False
+__host_hereDoc = False
+__host_inPragma = False
 
 def pragma_globs(globs):
     if "require sudo" in globs:
@@ -186,44 +183,44 @@ def pragma_options(data):
     return bits[0]
 
 
-pragma = BlockParser("pragma")
-pragma.addHook("options", pragma_options)
-pragma.addGlobal("require sudo")
+__host_pragma = BlockParser("pragma")
+__host_pragma.addHook("options", pragma_options)
+__host_pragma.addGlobal("require sudo")
 
-for line in file:
+for line in __host_file:
     line = line.rstrip()
     
     if line == "":
         continue
     
     if line == "pragma:":
-        inPragma = True
+        __host_inPragma = True
     
-    if inPragma:
-        pragma.parse(line)
-        if pragma.finished:
-            inPragma = False
-            pragma_globs(pragma.getHook("pragma"))
-            line = "__scython_get_options(%s)\n" % repr(pragma.getHook("options")) + line
+    if __host_inPragma:
+        __host_pragma.parse(line)
+        if __host_pragma.finished:
+            __host_inPragma = False
+            pragma_globs(__host_pragma.getHook("pragma"))
+            line = "__scython_get_options(%s)\n" % repr(__host_pragma.getHook("options")) + line
         else:
             continue
     
     if re.match(r'\s*``', line):
-        inHereDoc = not inHereDoc
+        __host_hereDoc = not __host_hereDoc
         continue
     
-    if inHereDoc:
+    if __host_hereDoc:
         hereDoc = re.match(r'(\s*)(.*)', line)
         line = r'%s__scython_call(%s.format(**locals()), False)' % (hereDoc.group(1), repr(hereDoc.group(2)))
         
     else:
         # insert appropriate signal handles
-        if not re.match(r'\s', line) and trappingCtrlC:
-            code += "signal.signal(signal.SIGINT, trap_ctrl_c)\n"
-            trappingCtrlC = False
+        if not re.match(r'\s', line) and __host_ctrlTrap:
+            __host_code += "signal.signal(signal.SIGINT, trap_ctrl_c)\n"
+            __host_ctrlTrap = False
             
         if re.search('trap_ctrl_c', line):
-            trappingCtrlC = True
+            __host_ctrlTrap = True
         
         tick = re.search(r'(.*)`(.*)`(\??)(.*)', line)
         if tick:
@@ -235,8 +232,43 @@ for line in file:
             line = "%s = __scython_unpacker(%s, %s)" % (format.group(1), format.group(3), format.group(2))
     
     line = re.sub(r'\$\{(\w+)\}', r'{\1}', line)
-    code += line + "\n"
+    __host_code += line + "\n"
     
-file.close()
+__host_file.close()
 
-exec code
+
+# setup environment
+
+script_name = argv[1]
+argv = argv[2:]
+args = string.join(argv)
+uid = os.getuid()
+HOME = expanduser("~") + "/"
+
+
+# go for it!
+
+try:
+    exec __host_code
+except Exception as e:
+    class bcolors:
+        HEADER = '\033[95m'
+        OKBLUE = '\033[94m'
+        OKGREEN = '\033[92m'
+        WARNING = '\033[93m'
+        FAIL = '\033[91m'
+        ENDC = '\033[0m'
+    
+    import traceback
+    type, _, _ = sys.exc_info()
+    
+    lineNum = int(re.match(r'[^0-9]*([0-9]+)', traceback.format_exc().splitlines()[-2]).group(1)) - 1
+    print "%sFile \"%s\", (parsed) line %d, in <module>%s" % (bcolors.WARNING, script_name, lineNum, bcolors.ENDC)
+    print "%s%s: %s%s\n" % (bcolors.WARNING, type.__name__, str(e), bcolors.ENDC)
+    
+    lines = __host_code.split("\n")
+    for i in range(max(lineNum - 3, 0), min(lineNum + 3, len(lines) - 1)):
+        if i == lineNum:
+            print bcolors.FAIL + lines[i] + bcolors.ENDC
+        else:
+            print lines[i]
