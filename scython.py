@@ -20,6 +20,16 @@ def write_file(filename, data, mode = "w"):
 def path_exists(path):
     return os.path.exists(path)
 
+def has_network():
+    return __scython_call("ping -c1 google.com 2> /dev/null", True)
+    
+"""
+def get_persistence(name):
+    persistenceDir = expanduser("~") + "/.scython"
+    `mkdir ${persistenceDir}`
+    return "%s/%s.tmp" % (persistenceDir, name)
+"""
+
 options = { }
 def __scython_get_options(os):
     global argv, args, options
@@ -175,6 +185,10 @@ def pragma_globs(globs):
     if "require sudo" in globs:
         if os.getuid() != 0:
             exit("%s must be run as root" % sys.argv[1])
+            
+    if "require network" in globs:
+        if not has_network():
+            exit("no network connection")
 
 def pragma_options(data):
     bits = [ eval(x.strip()) for x in data.split(",") ]
@@ -186,6 +200,7 @@ def pragma_options(data):
 __host_pragma = BlockParser("pragma")
 __host_pragma.addHook("options", pragma_options)
 __host_pragma.addGlobal("require sudo")
+__host_pragma.addGlobal("require network")
 
 for line in __host_file:
     line = line.rstrip()
