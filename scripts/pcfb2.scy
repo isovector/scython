@@ -5,6 +5,7 @@ pragma:
         "drop"
         "install"
         "help"
+        "force"
 
 if "help" in options:
     print "help message here"
@@ -55,6 +56,12 @@ if "install" in options:
     
 # -----------------------------------------------
 
+def lerp(a, b, val):
+    return a + (b - a) * val
+
+def lerp2(a, b, ra, rb, ref):
+    return lerp(a, b, (ref - ra) / (rb - ra))
+
 def now():
     return int(`date +%s`)
 
@@ -75,7 +82,7 @@ def getHelloWorked(hello):
         
     return timeWorked
     
-def isHelloValid(hello, hours = 18):
+def isHelloValid(hello, hours = 16):
     return hello != None and now() - hello[1] < 3600 * hours
     
 def getActiveStart():
@@ -136,6 +143,12 @@ def normalizeDay(time, first):
 # -----------------------------------------------
 
 def hello(forceData = False):
+    (now_h, now_m) = `date +%R` >>= "%d:%d"
+    if not (6 < now_h < 12) and not "force" in options:
+        exit("must hello in the morning")
+
+
+
     lastHello = getLastHello()
     if isHelloValid(lastHello):
         c.execute("SELECT * FROM stretch WHERE hello = ?", [lastHello[0]])
@@ -193,18 +206,33 @@ def stop():
 def percentile():
     lastHello = getLastHello()
     (x, y) = getShowData(lastHello, shownow = True)
-    print(int(round(y[-1], 2)))
+    return int(round(y[-1], 0))
+
+
+def relativePercentile():
+    lastHello = getLastHello()
+    when = now() - lastHello[1]
+    c.execute("SELECT start - checkin, startPerc, stop - checkin, stopPerc FROM stretch INNER JOIN hello ON hid = hello WHERE start - checkin < ? AND stop - checkin > ? AND hid != ?", [when, when, lastHello[0]])
+
+    avgs = []
+    for row in c.fetchall():
+        avgs.append(lerp2(row[1], row[3], row[0], row[1], when));
+
+    c.execute("SELECT r1.stop - checkin, r1.stopPerc, r2.start - checkin, r2.startPerc FROM stretch r1 INNER JOIN stretch r2 ON r1.sid + 1 = r2.sid AND r1.hello = r2.hello INNER JOIN hello ON hid = r1.hello WHERE r1.stop - checkin < ? AND r2.start - checkin > ? AND hid != ?", [when, when, lastHello[0]])
+    for row in c.fetchall():
+        avgs.append(lerp2(row[1], row[3], row[0], row[1], when));
+    current = int(round(sum(avgs) / len(avgs) * 100, 0))
+    print percentile() - current
 
 
 def show(showType = "day"):
     lastHello = getLastHello()
-    (x, y) = getShowData(lastHello, shownow = True)
-    firstX = x[0] if showType == "hello" else 0
-    
-    x = normalizeDay(x, firstX)
     plt.figure(figsize=(4.5, 2))
-    plt.plot(x, y, color='r', linewidth=2.0)
     plt.hold(True)
+
+    (dx, dy) = getShowData(lastHello, shownow = True)
+    firstX = dx[0] if showType == "hello" else 0
+    dx = normalizeDay(dx, firstX)
     
     days = getOtherDaysShowData(lastHello)
     delta = max(255 / len(days), 1)
@@ -216,6 +244,7 @@ def show(showType = "day"):
         color = "#%s" % hex(green << 8)[2:].rjust(6, '0')
         plt.plot(x, y, 'o', markersize = 3, color = color, mec = color)
         green += delta
+    plt.plot(dx, dy, color='r', linewidth=2.0)
     
     plt.gca().xaxis.set_major_locator( plt.MaxNLocator(nbins = 12) )
     plt.gca().yaxis.set_major_locator( plt.MaxNLocator(nbins = 5, prune = 'lower') )
@@ -235,8 +264,10 @@ elif argv[0] == "hello":
 elif argv[0] == "wake":
     hello(False)
 elif argv[0] == "show":
-    show("day")
+    show("hello")
 elif argv[0] == "percentile":
-    percentile()
+    print percentile()
+elif argv[0] == "rel":
+    relativePercentile()
 else: 
     exit("unknown command '%s'" % args)
