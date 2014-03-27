@@ -1,0 +1,6 @@
+#!/usr/local/bin/scython
+
+if "DP1 disconnected" in `xrandr`:
+  `xrandr --output LVDS1 --auto`
+else:
+  `xrandr --output DP1 --mode 1600x1200 --output LVDS1 --off`

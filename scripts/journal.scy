@@ -1,0 +1,243 @@
+#!/usr/local/bin/scython
+
+pragma:
+    options:
+        "drop"
+        "install"
+        "help"
+        "nocolor"
+        "html"
+        "all"
+
+if "help" in options:
+    print "help message here"
+    exit()
+
+
+from datetime import datetime
+import sqlite3, math
+
+conn = sqlite3.connect("%s.journal.db" % HOME)
+c = conn.cursor()
+
+# -----------------------------------------------
+
+if "install" in options:
+    if "drop" in options:
+        c.execute("DROP TABLE context")
+        c.execute("DROP TABLE journal")
+        c.execute("DROP TABLE idea")
+        c.execute("DROP TABLE settings")
+    
+    c.execute("""
+    CREATE TABLE context (
+        cid INTEGER PRIMARY KEY AUTOINCREMENT,
+        parent INTEGER,
+        name TEXT NOT NULL,
+
+        FOREIGN KEY(parent) REFERENCES context(cid)
+    )
+    """)
+    
+    c.execute("""
+    CREATE TABLE journal (
+        jid INTEGER PRIMARY KEY AUTOINCREMENT,
+        cid INTEGER NOT NULL,
+        time INTEGER NOT NULL,
+        msg TEXT NOT NULL,
+
+        FOREIGN KEY(cid) REFERENCES context(cid)
+    )
+    """)
+    
+    c.execute("""
+    CREATE TABLE idea (
+        iid INTEGER PRIMARY KEY AUTOINCREMENT,
+        cid INTEGER NOT NULL,
+        thought TEXT NOT NULL,
+        valid BOOLEAN NOT NULL,
+
+        FOREIGN KEY(cid) REFERENCES context(cid)
+    )
+    """)
+
+    c.execute("""
+    CREATE TABLE settings (
+        key TEXT PRIMARY KEY,
+        value INTEGER NOT NULL
+    )
+    """)
+
+    c.execute("INSERT INTO context VALUES (1, NULL, 'misc')")
+    c.execute("INSERT INTO settings VALUES ('current_context', 1)")
+
+    conn.commit()
+    
+    print "done"
+    exit()
+    
+# -----------------------------------------------
+
+def now():
+    return int(`date +%s`)
+
+# -----------------------------------------------
+
+def error(msg):
+  print "error: %s" % msg
+  exit()
+
+
+def setting(key, val = None):
+  if val:
+    c.execute("UPDATE settings SET value = ? WHERE key = ?", [val, key])
+    conn.commit()
+  else:
+    c.execute("SELECT value FROM settings WHERE key = ?", [key])
+    return c.fetchone()[0]
+
+
+def set_context(name):
+  c.execute("SELECT cid FROM context WHERE name = ?", [name])
+  row = c.fetchone()
+  if row == None:
+    error("context '%s' does not exist" % name)
+  setting("current_context", row[0])
+
+def write(msg):
+  c.execute("INSERT INTO journal (cid, time, msg) VALUES (?, ?, ?)", 
+    [context, now(), msg])
+  conn.commit()
+
+
+colors = {
+  "date"    : ["DAA520", "33", None],
+  "time"    : ["00CCFF", "36", None],
+  "iid"     : ["00CCFF", "36", None],
+  "invalid" : [None,     "2",  "del"],
+  "selected": ["DAA520", "33", None]
+}
+
+def markup(reason, s):
+  if "nocolor" in options:
+    return s
+
+  color = colors[reason]
+  if "html" in options:
+    if color[0]:
+      s = '<span color="#%s">%s</span>' % (color[0], s) 
+    if color[2]:
+      s = '<%s>%s</%s>' % (color[2], s, color[2])
+    return s 
+  else:
+    return '\033[%sm%s\033[0m' % (color[1], s)
+
+# -----------------------------------------------
+
+context = setting("current_context")
+
+# -----------------------------------------------
+
+for case in switch(argv[0]):
+  if case("newcontext"):
+    if argc == 1:
+      error("no name")
+
+    c.execute("INSERT INTO context (parent, name) VALUES (NULL, ?)", [argv[1]])
+    conn.commit()
+    set_context(argv[1])
+    break
+
+
+  if case("context"):
+    if argc > 1:
+      set_context(argv[1])
+
+    else:
+      c.execute("SELECT name FROM context WHERE cid = ?", [context])
+      print c.fetchone()[0]
+    break
+
+
+  if case("contexts"):
+    c.execute("SELECT cid, name FROM context ORDER BY name ASC")
+    for row in c.fetchall():
+      (cid, name) = row
+      if cid == context:
+        if "nocolor" in options:
+          print "*%s" % name
+        else:
+          print markup("selected", name)
+      else:
+        print name
+    break
+
+
+  if case("write"):
+    if argc == 1:
+      error("no entry")
+    write(string.join(argv[1:]))
+    break
+
+
+  if case("read"):
+    num = 8
+    if argc > 1:
+      num = int(argv[1])
+    c.execute("SELECT time, msg FROM journal WHERE cid = ? ORDER BY time DESC LIMIT ?", 
+      [context, num])
+
+    date = ""
+    for row in c.fetchall():
+      (time, msg) = row
+      dt = datetime.fromtimestamp(time)
+      newdate = dt.strftime("%A, %B %d")
+
+      if newdate != date:
+        date = newdate
+        print markup("date", date)
+      print "%s: %s" % (markup("time", dt.strftime("%H:%M")), msg)
+    break
+
+
+  if case("open"):
+    if argc == 1:
+      error("no idea")
+    idea = string.join(argv[1:])
+
+    write("[open-idea] %s" % idea)
+    c.execute("INSERT INTO idea (cid, thought, valid) VALUES (?, ?, 1)", 
+      [context, idea])
+    conn.commit()
+    break
+
+
+  if case("ideas"):
+    where = ""
+    if "all" not in options:
+      where = "AND valid = 1"
+
+    c.execute("SELECT iid, thought, valid FROM idea WHERE cid = ? %s ORDER BY thought ASC" % where,
+      [context])
+    for row in c.fetchall():
+      (iid, thought, valid) = row
+      if not valid:
+        thought = markup("invalid", thought)
+      print "%s: %s" % (markup("iid", iid), thought)
+    break
+
+
+  if case("close"):
+    if argc == 1:
+      error("no iid to close")
+    iid = int(argv[1])
+
+    c.execute("SELECT thought FROM idea WHERE cid = ? AND iid = ?", [context, iid])
+    row = c.fetchone()
+    if not row:
+      error("iid '%d' does not exist in context" % iid)
+
+    write("[close-idea] %s" % row[0])
+    c.execute("UPDATE idea SET valid = 0 WHERE iid = ?", [iid])
+    conn.commit()
+    break

@@ -1,5 +1,6 @@
-#!/usr/bin/python2
+#!/usr/bin/python
 import re, sys, os
+
 from sys import *
 from os.path import expanduser
 import string, subprocess, re, getopt, signal, os, pipes
@@ -22,7 +23,27 @@ def path_exists(path):
 
 def has_network():
     return __scython_call("ping -c1 google.com 2> /dev/null", True)
+
+class switch(object):
+    def __init__(self, value):
+        self.value = value
+        self.fall = False
+
+    def __iter__(self):
+        """Return the match method once, then stop"""
+        yield self.match
+        raise StopIteration
     
+    def match(self, *args):
+        """Indicate whether or not to enter a case suite"""
+        if self.fall or not args:
+            return True
+        elif self.value in args: # changed for v1.5, see below
+            self.fall = True
+            return True
+        else:
+            return False
+
 """
 def get_persistence(name):
     persistenceDir = expanduser("~") + "/.scython"
@@ -32,7 +53,7 @@ def get_persistence(name):
 
 options = { }
 def __scython_get_options(os):
-    global argv, args, options
+    global argv, argc, args, options
 
     shortOpts = ""
     longOpts = [ ]
@@ -79,6 +100,7 @@ def __scython_get_options(os):
             options[opt] = val
             
     args = string.join(argv)
+    argc = len(argv)
 
 def __scython_unpacker(format, haystack):
     formatTypes = {
@@ -256,15 +278,16 @@ __host_file.close()
 
 script_name = argv[1]
 argv = argv[2:]
+argc = len(argv)
 args = string.join(argv)
 uid = os.getuid()
 HOME = expanduser("~") + "/"
 
 
 # go for it!
-
 try:
-    exec __host_code
+  exec __host_code
+
 except Exception as e:
     class bcolors:
         HEADER = '\033[95m'
@@ -287,3 +310,4 @@ except Exception as e:
             print bcolors.FAIL + lines[i] + bcolors.ENDC
         else:
             print lines[i]
+

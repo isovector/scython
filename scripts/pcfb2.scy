@@ -60,7 +60,7 @@ def lerp(a, b, val):
     return a + (b - a) * val
 
 def lerp2(a, b, ra, rb, ref):
-    return lerp(a, b, (ref - ra) / (rb - ra))
+    return lerp(a, b, (ref - ra) / (rb - ra + 1))
 
 def now():
     return int(`date +%s`)
@@ -216,13 +216,20 @@ def relativePercentile():
 
     avgs = []
     for row in c.fetchall():
-        avgs.append(lerp2(row[1], row[3], row[0], row[1], when));
+        avgs.append(lerp2(row[1], row[3], row[0], row[2], when));
 
     c.execute("SELECT r1.stop - checkin, r1.stopPerc, r2.start - checkin, r2.startPerc FROM stretch r1 INNER JOIN stretch r2 ON r1.sid + 1 = r2.sid AND r1.hello = r2.hello INNER JOIN hello ON hid = r1.hello WHERE r1.stop - checkin < ? AND r2.start - checkin > ? AND hid != ?", [when, when, lastHello[0]])
     for row in c.fetchall():
-        avgs.append(lerp2(row[1], row[3], row[0], row[1], when));
-    current = int(round(sum(avgs) / len(avgs) * 100, 0))
-    print percentile() - current
+        avgs.append(lerp2(row[1], row[3], row[0], row[2], when));
+    perc = percentile()
+
+    current = 0
+    try:
+      current = sum(avgs) / len(avgs) * 100
+      print int(round(perc - current, 0))
+    except e:
+      print "-100"
+
 
 
 def show(showType = "day"):
