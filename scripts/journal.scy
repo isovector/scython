@@ -15,7 +15,7 @@ if "help" in options:
 
 
 from datetime import datetime
-import sqlite3, math
+import sqlite3, math, re
 
 conn = sqlite3.connect("%s.journal.db" % HOME)
 c = conn.cursor()
@@ -98,11 +98,8 @@ def setting(key, val = None):
 
 
 def set_context(name):
-  c.execute("SELECT cid FROM context WHERE name = ?", [name])
-  row = c.fetchone()
-  if row == None:
-    error("context '%s' does not exist" % name)
-  setting("current_context", row[0])
+  setting("current_context", name_to_cid(name))
+
 
 def write(msg):
   c.execute("INSERT INTO journal (cid, time, msg) VALUES (?, ?, ?)", 
@@ -115,7 +112,8 @@ colors = {
   "time"    : ["00CCFF", "36", None],
   "iid"     : ["00CCFF", "36", None],
   "invalid" : [None,     "2",  "del"],
-  "selected": ["DAA520", "33", None]
+  "selected": ["DAA520", "33", None],
+  "cid"     : ["AA33AA", "35", None]
 }
 
 def markup(reason, s):
@@ -132,9 +130,52 @@ def markup(reason, s):
   else:
     return '\033[%sm%s\033[0m' % (color[1], s)
 
+
+def name_to_cid(name):
+  c.execute("SELECT cid FROM context WHERE name = ?", [name])
+  row = c.fetchone()
+  
+  if not row:
+    error("no context '%s'" % name)
+  return row[0]
+
+
+def get_children(cid):
+  children = []
+  c.execute("SELECT cid FROM context WHERE parent = ?", [cid])
+  for child in c.fetchall():
+    children.append(child[0])
+
+  grandchildren = []
+  for child in children:
+    grandchildren += get_children(child)
+
+  return children + grandchildren
+
+
+def sql_list(sql, first, l, last):
+  regex = re.compile(r'\[\?\]') 
+  sql = regex.sub("(%s)" % (','.join('?' * len(l))), sql)
+  
+  if first is None:
+    first = []
+
+  if last is None:
+    last = []
+  
+  c.execute(sql, (first + l) + last)
+
 # -----------------------------------------------
 
 context = setting("current_context")
+children = get_children(context)
+tree = [context] + children
+
+context_names = { }
+c.execute("SELECT cid, name FROM context")
+for row in c.fetchall():
+  (cid, name) = row
+  context_names[cid] = name
 
 # -----------------------------------------------
 
@@ -143,7 +184,12 @@ for case in switch(argv[0]):
     if argc == 1:
       error("no name")
 
-    c.execute("INSERT INTO context (parent, name) VALUES (NULL, ?)", [argv[1]])
+    # todo(sandy): it would be nice to parse 'parent.child' here
+    if argc > 2:
+      c.execute("INSERT INTO context (parent, name) VALUES (?, ?)",
+        [name_to_cid(argv[2]), argv[1]])
+    else:
+      c.execute("INSERT INTO context (parent, name) VALUES (NULL, ?)", [argv[1]])
     conn.commit()
     set_context(argv[1])
     break
@@ -184,18 +230,23 @@ for case in switch(argv[0]):
     num = 8
     if argc > 1:
       num = int(argv[1])
-    c.execute("SELECT time, msg FROM journal WHERE cid = ? ORDER BY time DESC LIMIT ?", 
-      [context, num])
+    sql_list("SELECT cid, time, msg FROM journal WHERE cid IN [?] ORDER BY time DESC LIMIT ?", 
+      None, tree, [num])
 
     date = ""
+    cur_cid = context
     for row in c.fetchall():
-      (time, msg) = row
+      (cid, time, msg) = row
       dt = datetime.fromtimestamp(time)
       newdate = dt.strftime("%A, %B %d")
 
+      # todo(sandy): might be nice to sort by cid, time
       if newdate != date:
         date = newdate
         print markup("date", date)
+      if cid != cur_cid:
+        cur_cid = cid
+        print markup("cid", "%s:" % context_names[cur_cid])
       print "%s: %s" % (markup("time", dt.strftime("%H:%M")), msg)
     break
 
@@ -217,13 +268,17 @@ for case in switch(argv[0]):
     if "all" not in options:
       where = "AND valid = 1"
 
-    c.execute("SELECT iid, thought, valid FROM idea WHERE cid = ? %s ORDER BY thought ASC" % where,
-      [context])
+    sql_list("SELECT cid, iid, thought, valid FROM idea WHERE cid IN [?] %s ORDER BY thought ASC" % where,
+      None, tree, None)
     for row in c.fetchall():
-      (iid, thought, valid) = row
+      (cid, iid, thought, valid) = row
       if not valid:
         thought = markup("invalid", thought)
-      print "%s: %s" % (markup("iid", iid), thought)
+      iid = markup("iid", iid)
+      if len(tree) > 1:
+        print "%s: %s - %s" % (iid, markup("cid", context_names[cid]), thought)
+      else:
+        print "%s: %s" % (iid, thought)
     break
 
 
