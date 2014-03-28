@@ -14,7 +14,7 @@ if "help" in options:
     exit()
 
 
-from datetime import datetime
+from datetime import datetime, timedelta
 import sqlite3, math, re
 
 conn = sqlite3.connect("%s.journal.db" % HOME)
@@ -34,6 +34,7 @@ if "install" in options:
         cid INTEGER PRIMARY KEY AUTOINCREMENT,
         parent INTEGER,
         name TEXT NOT NULL,
+        spent INTEGER NOT NULL,
 
         FOREIGN KEY(parent) REFERENCES context(cid)
     )
@@ -165,16 +166,25 @@ def sql_list(sql, first, l, last):
   
   c.execute(sql, (first + l) + last)
 
+def minutes_to_str(minutes):
+  return str(timedelta(minutes = minutes))
+
 # -----------------------------------------------
 
 context = setting("current_context")
 children = get_children(context)
 tree = [context] + children
 
+c.execute("SELECT name FROM context WHERE cid = ?", [context])
+cur_name = c.fetchone()[0]
+
 context_names = { }
 c.execute("SELECT cid, name FROM context")
 for row in c.fetchall():
   (cid, name) = row
+  # get short names of children in tree
+  if name[0:len(cur_name) + 1] == cur_name + ".":
+    name = name[len(cur_name) + 1:]
   context_names[cid] = name
 
 # -----------------------------------------------
@@ -210,10 +220,7 @@ for case in switch(argv[0]):
     for row in c.fetchall():
       (cid, name) = row
       if cid == context:
-        if "nocolor" in options:
-          print "*%s" % name
-        else:
-          print markup("selected", name)
+        print markup("selected", name)
       else:
         print name
     break
@@ -295,4 +302,34 @@ for case in switch(argv[0]):
     write("[close-idea] %s" % row[0])
     c.execute("UPDATE idea SET valid = 0 WHERE iid = ?", [iid])
     conn.commit()
+    break
+
+
+  if case("clock"):
+    if argc == 1:
+      sql_list("SELECT MAX(LENGTH(name)) FROM context WHERE cid IN [?]", 
+        None, tree, None)
+      length = c.fetchone()[0]
+
+      sql_list("SELECT cid, spent FROM context WHERE cid IN [?] ORDER BY spent DESC",
+        None, tree, None)
+      if len(tree) > 1:
+        total = 0
+        for row in c.fetchall():
+          (cid, spent) = row
+          total += spent
+          name = context_names[cid]
+          spaces = ' ' * (length - len(name))
+          print "%s%s: %s" % (spaces, markup("cid", name), minutes_to_str(spent))
+        print "%stotal: %s" % (' ' * (length - 5), minutes_to_str(total))
+      else:
+        (cid, spent) = c.fetchone()
+        print minutes_to_str(spent)
+
+    else:
+      time = int(argv[1])
+      c.execute("UPDATE context SET spent = spent + ? WHERE cid = ?", 
+        [time, context])
+      conn.commit()
+      write("[clock] added %s minutes" % time)
     break

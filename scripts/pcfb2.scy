@@ -227,7 +227,7 @@ def relativePercentile():
     try:
       current = sum(avgs) / len(avgs) * 100
       print int(round(perc - current, 0))
-    except e:
+    except:
       print "-100"
 
 
