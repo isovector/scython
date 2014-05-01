@@ -69,7 +69,7 @@ if "install" in options:
     )
     """)
 
-    c.execute("INSERT INTO context VALUES (1, NULL, 'misc')")
+    c.execute("INSERT INTO context VALUES (1, NULL, 'misc', 0)")
     c.execute("INSERT INTO settings VALUES ('current_context', 1)")
 
     conn.commit()
@@ -196,10 +196,10 @@ for case in switch(argv[0]):
 
     # todo(sandy): it would be nice to parse 'parent.child' here
     if argc > 2:
-      c.execute("INSERT INTO context (parent, name) VALUES (?, ?)",
+      c.execute("INSERT INTO context (parent, name, spent) VALUES (?, ?, 0)",
         [name_to_cid(argv[2]), argv[1]])
     else:
-      c.execute("INSERT INTO context (parent, name) VALUES (NULL, ?)", [argv[1]])
+      c.execute("INSERT INTO context (parent, name, spent) VALUES (NULL, ?, 0)", [argv[1]])
     conn.commit()
     set_context(argv[1])
     break
@@ -228,7 +228,7 @@ for case in switch(argv[0]):
 
   if case("write"):
     if argc == 1:
-      error("no entry")
+      error("no entry") 
     write(string.join(argv[1:]))
     break
 

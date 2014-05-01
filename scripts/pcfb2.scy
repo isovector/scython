@@ -205,12 +205,17 @@ def stop():
 
 def percentile():
     lastHello = getLastHello()
+    if lastHello == None:
+      return 0
     (x, y) = getShowData(lastHello, shownow = True)
     return int(round(y[-1], 0))
 
 
 def relativePercentile():
     lastHello = getLastHello()
+    if lastHello == None:
+      return 0
+
     when = now() - lastHello[1]
     c.execute("SELECT start - checkin, startPerc, stop - checkin, stopPerc FROM stretch INNER JOIN hello ON hid = hello WHERE start - checkin < ? AND stop - checkin > ? AND hid != ?", [when, when, lastHello[0]])
 
@@ -237,21 +242,22 @@ def show(showType = "day"):
     plt.figure(figsize=(4.5, 2))
     plt.hold(True)
 
-    (dx, dy) = getShowData(lastHello, shownow = True)
-    firstX = dx[0] if showType == "hello" else 0
-    dx = normalizeDay(dx, firstX)
+    if lastHello != None:
+      (dx, dy) = getShowData(lastHello, shownow = True)
+      firstX = dx[0] if showType == "hello" else 0
+      dx = normalizeDay(dx, firstX)
     
-    days = getOtherDaysShowData(lastHello)
-    delta = max(255 / len(days), 1)
-    green = delta
-    for day in days:
-        (x, y) = day
-        x = normalizeDay(x, firstX)
+      days = getOtherDaysShowData(lastHello)
+      delta = max(255 / len(days), 1)
+      green = delta
+      for day in days:
+          (x, y) = day
+          x = normalizeDay(x, firstX)
         
-        color = "#%s" % hex(green << 8)[2:].rjust(6, '0')
-        plt.plot(x, y, 'o', markersize = 3, color = color, mec = color)
-        green += delta
-    plt.plot(dx, dy, color='r', linewidth=2.0)
+          color = "#%s" % hex(green << 8)[2:].rjust(6, '0')
+          plt.plot(x, y, 'o', markersize = 3, color = color, mec = color)
+          green += delta
+      plt.plot(dx, dy, color='r', linewidth=2.0)
     
     plt.gca().xaxis.set_major_locator( plt.MaxNLocator(nbins = 12) )
     plt.gca().yaxis.set_major_locator( plt.MaxNLocator(nbins = 5, prune = 'lower') )
