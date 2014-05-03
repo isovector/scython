@@ -12,7 +12,9 @@ if "help" in options:
     exit()
 
 
-import datetime
+from datetime import datetime, date
+import time as dtime
+
 import sqlite3, matplotlib, math
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -63,7 +65,7 @@ def lerp2(a, b, ra, rb, ref):
     return lerp(a, b, (ref - ra) / (rb - ra + 1))
 
 def now():
-    return int(`date +%s`)
+    return dtime.time() 
 
 def getHelloFromId(id):
     c.execute("SELECT * FROM hello WHERE hid = ?", [id])
@@ -104,7 +106,7 @@ def getShowData(hello, shownow = False):
     x = []
     y = []
     
-    dayStart = int(datetime.date.fromtimestamp(hello[1]).strftime("%s"))
+    dayStart = int(date.fromtimestamp(hello[1]).strftime("%s"))
     secsPerHour = 3600.0
     
     c.execute("SELECT start, startPerc, stop, stopPerc FROM stretch WHERE hello = ?", [hello[0]])
@@ -143,19 +145,14 @@ def normalizeDay(time, first):
 # -----------------------------------------------
 
 def hello(forceData = False):
-    (now_h, now_m) = `date +%R` >>= "%d:%d"
-    if not (6 < now_h < 12) and not "force" in options:
-        exit("must hello in the morning")
-
-
-
     lastHello = getLastHello()
     if isHelloValid(lastHello):
         c.execute("SELECT * FROM stretch WHERE hello = ?", [lastHello[0]])
         if c.fetchone() != None:
             exit("error: too soon")
-                
-    time = now()
+    
+    today = dtime.mktime(datetime.now().date().timetuple())
+    time = today + 7 * 3600 
     c.execute("INSERT INTO hello VALUES (NULL, ?)", [time])
     conn.commit()
     
@@ -244,11 +241,14 @@ def show(showType = "day"):
 
     if lastHello != None:
       (dx, dy) = getShowData(lastHello, shownow = True)
-      firstX = dx[0] if showType == "hello" else 0
+      firstX = dx[0] if showType == "hello" else 7
       dx = normalizeDay(dx, firstX)
     
       days = getOtherDaysShowData(lastHello)
-      delta = max(255 / len(days), 1)
+      delta = 1
+      if len(days) != 0:
+        delta = max(255 / len(days), 1)
+
       green = delta
       for day in days:
           (x, y) = day
@@ -277,7 +277,7 @@ elif argv[0] == "hello":
 elif argv[0] == "wake":
     hello(False)
 elif argv[0] == "show":
-    show("hello")
+    show("day")
 elif argv[0] == "percentile":
     print percentile()
 elif argv[0] == "rel":
