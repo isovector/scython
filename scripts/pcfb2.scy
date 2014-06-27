@@ -153,6 +153,10 @@ def hello(forceData = False):
     
     today = dtime.mktime(datetime.now().date().timetuple())
     time = today + 7 * 3600 
+
+    if time > now():
+      return
+
     c.execute("INSERT INTO hello VALUES (NULL, ?)", [time])
     conn.commit()
     

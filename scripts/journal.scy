@@ -263,6 +263,12 @@ for case in switch(argv[0]):
       print "%s: %s" % (markup("time", dt.strftime("%H:%M")), msg)
     break
 
+  if case("last"):
+      sql_list("SELECT cid, time, msg FROM journal WHERE cid IN [?] ORDER BY time DESC LIMIT 1", None, tree, None)
+      (cid, time, msg) = c.fetchone()
+      print "%s" % msg
+      break
+
 
   if case("open"):
     if argc == 1:
