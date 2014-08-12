@@ -1,18 +1,41 @@
 #!/usr/local/bin/scython
 
+import urllib
+import json
+
 pragma:
     options:
         "quality="
         "output="
 
+def getPlayingTrack(username):
+    api = "http://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user=%s&api_key=039a364537438d448975063b5477aa92&format=json" % username
+
+    f = urllib.urlopen(api)
+    obj = json.loads(f.read())
+    f.close()
+
+    track = obj["recenttracks"]["track"][0]
+    artist = track["artist"]["#text"]
+    song = track["name"]
+    album = track["album"]["#text"]
+
+    return (artist, song, album)
+
+
+
 quality = options["quality"]
 output = argv[0]
 journal = `journal last`
+
+track = getPlayingTrack("Paamayim")
+tracktext = "%s - %s" % (track[0], track[1])
 
 ``
 avconv -f video4linux2 -s 320x240 -i /dev/video0 -ss 0:0:2 -frames 1 /tmp/face.jpeg
 scrot -q ${quality} /tmp/screen.jpeg
 composite /tmp/face.jpeg /tmp/screen.jpeg -gravity southeast /tmp/final.jpeg
+convert /tmp/final.jpeg -fill white -pointsize 24 -undercolor '#00000080' -gravity southwest -annotate +0+5 "${tracktext} " /tmp/final.jpeg
 convert /tmp/final.jpeg -fill white -pointsize 24 -undercolor '#00000080' -gravity north -annotate +0+5 "${journal} " ${output}
 ``
 
