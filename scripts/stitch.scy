@@ -1,0 +1,18 @@
+#!/usr/local/bin/scython
+
+pragma:
+    options:
+        "quality="
+        "output="
+
+quality = options["quality"]
+output = argv[0]
+journal = `journal last`
+
+``
+avconv -f video4linux2 -s 320x240 -i /dev/video0 -ss 0:0:2 -frames 1 /tmp/face.jpeg
+scrot -q ${quality} /tmp/screen.jpeg
+composite /tmp/face.jpeg /tmp/screen.jpeg -gravity southeast /tmp/final.jpeg
+convert /tmp/final.jpeg -fill white -pointsize 24 -undercolor '#00000080' -gravity north -annotate +0+5 "${journal} " ${output}
+``
+

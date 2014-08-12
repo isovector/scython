@@ -1,0 +1,58 @@
+#!/usr/bin/python2
+
+
+import matplotlib, math, sys
+from matplotlib.patches import FancyArrowPatch
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+
+argv = sys.argv[1:]
+
+ax = None
+lastx = 0
+lasty = 0
+
+def reset():
+    global lastx, lasty
+    lastx = 0
+    lasty = 0
+
+def arrow(x, y, c):
+    global ax, lastx, lasty
+    x = lastx + x
+    y = lasty + y
+    ax.add_patch(FancyArrowPatch((lastx,lasty),(x,y),arrowstyle='->',mutation_scale=30, color=c))
+    lastx = x
+    lasty = y
+
+
+def show():
+    global ax
+
+    fig = plt.figure(figsize=(2.3, 2.2))
+    plt.hold(True)
+
+    ax = fig.add_subplot(111)
+    fig.subplots_adjust(bottom = 0.2, left = 0.21)
+
+    length = 0.5
+    x = int(argv[3])
+    y = int(argv[4])
+
+    arrow(x, y, argv[5])
+    reset()
+    arrow(-x, y, "k")
+    #ax.arrow(0, 0, x, y, head_width=0.5, head_length=length, fc=argv[5], ec=argv[5])
+
+    #plt.gca().xaxis.set_major_locator( plt.MaxNLocator(nbins = 12) )
+    #plt.gca().yaxis.set_major_locator( plt.MaxNLocator(nbins = 5, prune = 'lower') )
+    plt.gca().grid(True)
+    plt.xlim([-3, 3])
+    plt.ylim([-3, 3])
+    plt.xlabel(argv[1])
+    plt.ylabel(argv[2])
+    plt.savefig(argv[0])
+
+
+show()
+
