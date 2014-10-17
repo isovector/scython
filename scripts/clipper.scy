@@ -1,0 +1,101 @@
+#!/usr/local/bin/scython
+
+pragma:
+    options:
+        "drop"
+        "install"
+        "help"
+        "insert"
+
+if "help" in options:
+    print "help message here"
+    exit()
+
+# --------------------
+
+import opengraph, sqlite3
+from datetime import datetime, date
+import time as dtime
+from urlparse import urlparse
+
+conn = sqlite3.connect("%s.clipper.db" % HOME)
+c = conn.cursor()
+
+# --------------------
+
+if "install" in options:
+    if "drop" in options:
+        c.execute("DROP TABLE meta")
+        c.execute("DROP TABLE clips")
+
+    c.execute("""
+    CREATE TABLE meta (
+        mid INTEGER PRIMARY KEY AUTOINCREMENT,
+        cid INTEGER NOT NULL,
+        key TEXT NOT NULL,
+        value TEXT NOT NULL,
+
+        FOREIGN KEY(cid) REFERENCES clips(cid)
+    )
+    """)
+
+    c.execute("""
+    CREATE TABLE clips (
+        cid INTEGER PRIMARY KEY AUTOINCREMENT,
+        time INTEGER NOT NULL,
+        url TEXT NOT NULL,
+        clip TEXT NOT NULL
+    )
+    """)
+
+    conn.commit()
+    print "done"
+    exit()
+
+# --------------------
+
+def add_kv(cid, key, val):
+    print "%-15s => %s" % (key, val)
+
+    c.execute(
+        "INSERT INTO meta VALUES (NULL, ?, ?, ?)",
+        (
+            cid,
+            key,
+            val
+        )
+    )
+
+def commit(url, clip):
+    parsed_uri = urlparse(url)
+    domain = '{uri.scheme}://{uri.netloc}/'.format(uri=parsed_uri)
+
+    c.execute(
+        "INSERT INTO clips VALUES (NULL, ?, ?, ?)",
+        (
+            dtime.time(),
+            url,
+            clip
+        )
+    )
+
+    conn.commit()
+
+    c.execute("SELECT last_insert_rowid()")
+    cid = c.fetchone()[0]
+
+    metadata = opengraph.OpenGraph(url = argv[0])
+    for key, val in metadata.items():
+        add_kv(cid, key, val)
+
+    add_kv(cid, "domain", domain)
+    conn.commit()
+
+# --------------------
+
+if "insert" in options:
+    commit(argv[0], stdin.read())
+else:
+    print "error: no action suggested"
+    exit()
+
