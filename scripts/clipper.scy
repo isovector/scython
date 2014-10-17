@@ -94,7 +94,7 @@ def commit(url, clip):
 # --------------------
 
 if "insert" in options:
-    commit(argv[0], stdin.read())
+    commit(argv[0], stdin.read().decode(errors = "ignore"))
 else:
     print "error: no action suggested"
     exit()
