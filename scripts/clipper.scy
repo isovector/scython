@@ -86,7 +86,11 @@ def commit(url, clip):
 
     metadata = opengraph.OpenGraph(url = argv[0])
     for key, val in metadata.items():
-        add_kv(cid, key, val)
+        try:
+            add_kv(cid, key, val.decode(errors = "ignore"))
+        except:
+           pass
+
 
     add_kv(cid, "domain", domain)
     conn.commit()
