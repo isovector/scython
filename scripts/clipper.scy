@@ -4,6 +4,8 @@ pragma:
     options:
         "drop"
         "install"
+        "query="
+        "listkeys"
         "help"
         "insert"
 
@@ -13,7 +15,7 @@ if "help" in options:
 
 # --------------------
 
-import opengraph, sqlite3
+import opengraph, sqlite3, json
 from datetime import datetime, date
 import time as dtime
 from urlparse import urlparse
@@ -99,6 +101,55 @@ def commit(url, clip):
 
 if "insert" in options:
     commit(argv[0], stdin.read().decode(errors = "ignore"))
+
+
+elif "query" in options:
+    c.execute(
+        "SELECT cid FROM meta WHERE key = ? AND value LIKE ?",
+        (
+            options["query"],
+            "%%%s%%" % args
+        )
+    )
+
+    jsobjects = [ ]
+    cids = map(lambda x: x[0], c.fetchall())
+    for cid in cids:
+        metadata = { }
+        c.execute(
+            "SELECT key, value FROM meta WHERE cid = ?",
+            [ cid ]
+        )
+
+        for key, val in c.fetchall():
+            metadata[key] = val
+
+        c.execute(
+            "SELECT time, url, clip FROM clips WHERE cid = ?",
+            [ cid ]
+        )
+
+        tup = c.fetchone()
+        jsobjects.append({
+            'time': tup[0],
+            'url': tup[1],
+            'clip': tup[2],
+            'metadata': metadata
+        })
+
+    print json.dumps(jsobjects)
+
+
+elif "listkeys" in options:
+    c.execute(
+        "SELECT DISTINCT key FROM meta ORDER BY key ASC"
+    )
+
+    for key in c.fetchall():
+        print key[0]
+    exit()
+
+
 else:
     print "error: no action suggested"
     exit()

@@ -28,34 +28,34 @@ if "install" in options:
     if "drop" in options:
         c.execute("DROP TABLE stretch")
         c.execute("DROP TABLE hello")
-    
+
     c.execute("""
     CREATE TABLE stretch (
         sid INTEGER PRIMARY KEY AUTOINCREMENT,
         hello INTEGER NOT NULL,
-        
+
         start INTEGER NOT NULL,
         startPerc REAL NOT NULL,
-        
+
         stop INTEGER,
         stopPerc REAL,
-        
+
         FOREIGN KEY(hello) REFERENCES hello(hid)
     )
     """)
-    
+
     c.execute("""
     CREATE TABLE hello (
         hid INTEGER PRIMARY KEY AUTOINCREMENT,
         checkin INTEGER NOT NULL
     )
     """)
-    
+
     conn.commit()
-    
+
     print "done"
     exit()
-    
+
 # -----------------------------------------------
 
 def lerp(a, b, val):
@@ -65,7 +65,7 @@ def lerp2(a, b, ra, rb, ref):
     return lerp(a, b, (ref - ra) / (rb - ra + 1))
 
 def now():
-    return dtime.time() 
+    return dtime.time()
 
 def getHelloFromId(id):
     c.execute("SELECT * FROM hello WHERE hid = ?", [id])
@@ -74,27 +74,27 @@ def getHelloFromId(id):
 def getLastHello():
     c.execute("SELECT * FROM hello ORDER BY checkin DESC LIMIT 1")
     return c.fetchone()
-    
+
 def getHelloWorked(hello):
     timeWorked = 0
-    
+
     rows = c.execute("SELECT start, stop FROM stretch WHERE hello = ? AND stop IS NOT NULL", [hello[0]])
     for row in rows:
         timeWorked += row[1] - row[0]
-        
+
     return timeWorked
-    
+
 def isHelloValid(hello, hours = 16):
     return hello != None and now() - hello[1] < 3600 * hours
-    
+
 def getActiveStart():
     c.execute("SELECT start, hello FROM stretch WHERE stop IS NULL")
     row = c.fetchone()
     if row == None:
         return False
-        
+
     return row
-    
+
 def getPercentile(hello, offset = 0):
     worked = getHelloWorked(hello) + offset
     duration = float(now() - hello[1] + 1)
@@ -105,43 +105,43 @@ def getPercentile(hello, offset = 0):
 def getShowData(hello, shownow = False):
     x = []
     y = []
-    
+
     dayStart = int(date.fromtimestamp(hello[1]).strftime("%s"))
     secsPerHour = 3600.0
-    
+
     c.execute("SELECT start, startPerc, stop, stopPerc FROM stretch WHERE hello = ?", [hello[0]])
     for row in c.fetchall():
         x.append((row[0] - dayStart) / secsPerHour)
         y.append(row[1] * 100)
-        
+
         if row[2] != None:
             x.append((row[2] - dayStart) / secsPerHour)
             y.append(row[3] * 100)
-        
+
     if shownow:
         start = getActiveStart()
         offset = 0 if not start else (now() - start[0])
-        
+
         x.append((now() - dayStart) / secsPerHour)
         y.append(getPercentile(hello, offset) * 100)
-        
+
     return (x, y)
-    
+
 def getOtherDaysShowData(hello):
     results = []
-    
+
     c.execute("SELECT * FROM hello WHERE hid != ? ORDER BY hid ASC", [hello[0]])
     for row in c.fetchall():
         (x, y) = getShowData(row)
-        
+
         if len(x) > 1:
             results.append((x, y));
-        
+
     return results
-    
+
 def normalizeDay(time, first):
     return map(lambda x: x - first, time)
-    
+
 # -----------------------------------------------
 
 def hello(forceData = False):
@@ -150,57 +150,58 @@ def hello(forceData = False):
         c.execute("SELECT * FROM stretch WHERE hello = ?", [lastHello[0]])
         if c.fetchone() != None:
             exit("error: too soon")
-    
+
     today = dtime.mktime(datetime.now().date().timetuple())
-    time = today + 7 * 3600 
+    time = today + 5 * 3600
 
     if time > now():
+      print "error: in future"
       return
 
     c.execute("INSERT INTO hello VALUES (NULL, ?)", [time])
     conn.commit()
-    
+
     print "hello: %d" % time
-    
+
     if forceData:
         start()
         stop()
-        
+
     return getLastHello()
-    
-    
+
+
 def start():
     if getActiveStart():
         exit("error: already started")
-    
+
     lastHello = getLastHello()
 
     # only force hello if it has been longer than 24 hours since the last one
     if not isHelloValid(lastHello, 24):
         lastHello = hello()
-    
+
     perc = getPercentile(lastHello)
-    
+
     c.execute("INSERT INTO stretch VALUES (NULL, ?, ?, ?, NULL, NULL)", (lastHello[0], now(), perc))
     conn.commit()
-    
+
     print "started"
 
-    
+
 def stop():
     start = getActiveStart()
     if not start:
         exit("error: not started")
-        
+
     hello = getHelloFromId(start[1])
-    
+
     time = now()
     duration = time - start[0]
     perc = getPercentile(hello, duration)
-        
+
     c.execute("UPDATE stretch SET stop = ?, stopPerc = ? WHERE stop IS NULL", (time, perc))
     conn.commit()
-    
+
     print "stopped: %d (%f)" % (duration, perc)
 
 
@@ -245,9 +246,9 @@ def show(showType = "day"):
 
     if lastHello != None:
       (dx, dy) = getShowData(lastHello, shownow = True)
-      firstX = dx[0] if showType == "hello" else 7
+      firstX = dx[0] if showType == "hello" else 5
       dx = normalizeDay(dx, firstX)
-    
+
       days = getOtherDaysShowData(lastHello)
       delta = 1
       if len(days) != 0:
@@ -257,12 +258,12 @@ def show(showType = "day"):
       for day in days:
           (x, y) = day
           x = normalizeDay(x, firstX)
-        
+
           color = "#%s" % hex(green << 8)[2:].rjust(6, '0')
           plt.plot(x, y, 'o', markersize = 3, color = color, mec = color)
           green += delta
       plt.plot(dx, dy, color='r', linewidth=2.0)
-    
+
     plt.gca().xaxis.set_major_locator( plt.MaxNLocator(nbins = 12) )
     plt.gca().yaxis.set_major_locator( plt.MaxNLocator(nbins = 5, prune = 'lower') )
     plt.gca().grid(True)
@@ -286,5 +287,5 @@ elif argv[0] == "percentile":
     print percentile()
 elif argv[0] == "rel":
     relativePercentile()
-else: 
+else:
     exit("unknown command '%s'" % args)
