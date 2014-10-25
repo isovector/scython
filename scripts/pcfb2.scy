@@ -6,6 +6,7 @@ pragma:
         "install"
         "help"
         "force"
+        "dark"
 
 if "help" in options:
     print "help message here"
@@ -241,7 +242,19 @@ def relativePercentile():
 
 def show(showType = "day"):
     lastHello = getLastHello()
-    plt.figure(figsize=(4.5, 2))
+    plt.figure(figsize=(4.5, 2.4))
+    bg = "white"
+    fg = "black"
+    if "dark" in options:
+        bg = "black"
+        fg = "white"
+        ax = plt.gca()
+        ax.spines['left'].set_color("white")
+        ax.spines['right'].set_color("white")
+        ax.spines['top'].set_color("white")
+        ax.spines['bottom'].set_color("white")
+        [i.set_color("white") for i in ax.get_yticklabels()]
+        [i.set_color("white") for i in ax.get_xticklabels()]
     plt.hold(True)
 
     if lastHello != None:
@@ -260,16 +273,41 @@ def show(showType = "day"):
           x = normalizeDay(x, firstX)
 
           color = "#%s" % hex(green << 8)[2:].rjust(6, '0')
-          plt.plot(x, y, 'o', markersize = 3, color = color, mec = color)
+          plt.plot(x, y, color= color, linewidth=1.0)
           green += delta
       plt.plot(dx, dy, color='r', linewidth=2.0)
 
+    plt.figure(1).set_facecolor("black")
     plt.gca().xaxis.set_major_locator( plt.MaxNLocator(nbins = 12) )
     plt.gca().yaxis.set_major_locator( plt.MaxNLocator(nbins = 5, prune = 'lower') )
-    plt.gca().grid(True)
+    plt.gca().grid(True, color=fg)
     plt.xlim([0, 24])
     plt.ylim([0, 100])
-    plt.savefig("/tmp/pcfb.png", transparent=True)
+    plt.savefig("/tmp/pcfb.png", transparent=True, facecolor=bg, edgecolor='none')
+
+def total():
+    when = now()
+    start = when
+
+    active = getActiveStart()
+    if active:
+        start = int(getActiveStart()[0])
+
+    hello = getLastHello()
+    avg = percentile() / 100.0
+
+    # this session
+    m = (when - start) / 60
+    h = m / 60
+    m = m % 60
+    print "%i:%02i" % (h, m)
+
+    # today
+    m = int((when - int(hello[1])) * avg / 60)
+    h = m / 60
+    m = m % 60
+    print "%i:%02i" % (h, m)
+
 
 # -----------------------------------------------
 
@@ -283,6 +321,8 @@ elif argv[0] == "wake":
     hello(False)
 elif argv[0] == "show":
     show("day")
+elif argv[0] == "total":
+    total()
 elif argv[0] == "percentile":
     print percentile()
 elif argv[0] == "rel":

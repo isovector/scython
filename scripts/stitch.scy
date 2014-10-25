@@ -2,10 +2,10 @@
 
 import urllib
 import json
+from PIL import Image, ImageDraw, ImageFont
 
 pragma:
     options:
-        "quality="
         "output="
 
 def getPlayingTrack(username):
@@ -23,19 +23,75 @@ def getPlayingTrack(username):
     return (artist, song, album)
 
 
+def center(draw, text, font, x, y, color):
+    size = draw.textsize(text, font)
+    draw.text((x - size[0] / 2, y), text, font=font, fill=color)
 
-quality = options["quality"]
-output = argv[0]
+def right(draw, text, font, x, y, color):
+    size = draw.textsize(text, font)
+    draw.text((x - size[0], y), text, font=font, fill=color)
+
+
+
 journal = `journal last`
+totals = (`pcfb total`).split("\n")
 
 track = getPlayingTrack("Paamayim")
-tracktext = "%s - %s" % (track[0], track[1])
+tracktext = "%s > %s" % (track[0], track[1])
 
 ``
 avconv -f video4linux2 -s 320x240 -i /dev/video0 -ss 0:0:2 -frames 1 /tmp/face.jpeg
-scrot -q ${quality} /tmp/screen.jpeg
-composite /tmp/face.jpeg /tmp/screen.jpeg -gravity southeast /tmp/final.jpeg
-convert /tmp/final.jpeg -fill white -pointsize 24 -undercolor '#00000080' -gravity southwest -annotate +0+5 "${tracktext} " /tmp/final.jpeg
-convert /tmp/final.jpeg -fill white -pointsize 24 -undercolor '#00000080' -gravity north -annotate +0+5 "${journal} " ${output}
+scrot /tmp/screen.png
+pcfb show --dark
 ``
+
+
+fw = 320
+fh = 240
+
+face = Image.open("/tmp/face.jpeg")
+screen = Image.open("/tmp/screen.png")
+pcfb = Image.open("/tmp/pcfb.png")
+
+result = Image.new("RGB", (1600, 1140), 0x050505)
+draw = ImageDraw.Draw(result)
+big = ImageFont.truetype('/usr/share/fonts/truetype/freefont/FreeMono.ttf', 40)
+reg = ImageFont.truetype('/usr/share/fonts/truetype/freefont/FreeMono.ttf', 14)
+
+
+sw = screen.size[0]
+sh = screen.size[1]
+result.paste(screen, (0, 0, sw, sh))
+
+pw = pcfb.size[0]
+ph = pcfb.size[1]
+px = sw - pw + 30
+
+result.paste(pcfb, (px, sh, px + pw, sh + ph))
+
+fx = sw / 2 - fw / 2
+fy = sh
+result.paste(face, (fx, fy, fx + fw, fy + fh))
+
+tx = fx + fw
+
+center(draw, `date +%A`, big, (tx + px) / 2 + 10, sh + 30, (130,163,230,128))
+center(draw, `date +%H:%M`, big, (tx + px) / 2 + 10, sh + 70, (218,165,32,128))
+
+right(draw, `journal context`, big, fx - 20, sh + 70, (218,165,32,128))
+
+ty = sh + 20
+for line in (`journal read 8 --nocolor`).split("\n")[1:]:
+    draw.text((10, ty), line, font=reg, fill=(255,255,255,128))
+    ty += 20
+
+
+draw.text((10, sh + 190), tracktext, font=big, fill=(255,64,64,128))
+
+draw.text((tx + 20, sh + 150), totals[0], font=big, fill=(255,255,255,128))
+draw.text((tx + 150, sh + 162), "session", font=reg, fill=(255,255,255,128))
+draw.text((tx + 20, sh + 190), totals[1], font=big, fill=(255,255,255,128))
+draw.text((tx + 150, sh + 202), "today", font=reg, fill=(255,255,255,128))
+
+result.save(argv[0])
 
