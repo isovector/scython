@@ -56,6 +56,7 @@ pcfb = Image.open("/tmp/pcfb.png")
 result = Image.new("RGB", (1600, 1140), 0x050505)
 draw = ImageDraw.Draw(result)
 big = ImageFont.truetype('/usr/share/fonts/truetype/freefont/FreeMono.ttf', 40)
+mus = ImageFont.truetype('/usr/share/fonts/truetype/freefont/FreeMono.ttf', 24)
 reg = ImageFont.truetype('/usr/share/fonts/truetype/freefont/FreeMono.ttf', 14)
 
 
@@ -86,7 +87,7 @@ for line in (`journal read 8 --nocolor`).split("\n")[1:]:
     ty += 20
 
 
-draw.text((10, sh + 190), tracktext, font=big, fill=(255,64,64,128))
+draw.text((10, sh + 205), tracktext, font=mus, fill=(255,64,64,128))
 
 draw.text((tx + 20, sh + 150), totals[0], font=big, fill=(255,255,255,128))
 draw.text((tx + 150, sh + 162), "session", font=reg, fill=(255,255,255,128))

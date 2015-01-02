@@ -35,6 +35,7 @@ if "install" in options:
         sid INTEGER PRIMARY KEY AUTOINCREMENT,
         hello INTEGER NOT NULL,
 
+        context TEXT NOT NULL,
         start INTEGER NOT NULL,
         startPerc REAL NOT NULL,
 
@@ -171,7 +172,7 @@ def hello(forceData = False):
     return getLastHello()
 
 
-def start():
+def start(context):
     if getActiveStart():
         exit("error: already started")
 
@@ -183,7 +184,7 @@ def start():
 
     perc = getPercentile(lastHello)
 
-    c.execute("INSERT INTO stretch VALUES (NULL, ?, ?, ?, NULL, NULL)", (lastHello[0], now(), perc))
+    c.execute("INSERT INTO stretch VALUES (NULL, ?, ?, ?, ?, NULL, NULL)", (lastHello[0], context, now(), perc))
     conn.commit()
 
     print "started"
@@ -312,7 +313,7 @@ def total():
 # -----------------------------------------------
 
 if argv[0] == "start":
-    start()
+    start(argv[1])
 elif argv[0] == "stop":
     stop()
 elif argv[0] == "hello":
