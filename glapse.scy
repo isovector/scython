@@ -1,0 +1,19 @@
+#!/usr/local/bin/scython
+
+import os.path
+
+global file
+file = 1
+
+def getFile():
+    global file
+    return "/home/bootstrap/glapse/%09d.jpg" % file
+
+while True:
+    while os.path.exists(getFile()):
+        file += 1
+    filename = getFile()
+    print("creating stitch %s" % filename)
+    `stitch ${filename}`
+    `sleep 10s`
+
