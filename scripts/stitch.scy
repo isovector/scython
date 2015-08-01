@@ -2,9 +2,11 @@
 
 import urllib
 import json
-import os.path
+import os, os.path
 import time
 from PIL import Image, ImageDraw, ImageFont
+
+os.chdir(argv[0])
 
 def getPlayingTrack(username):
     api = "http://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user=%s&api_key=039a364537438d448975063b5477aa92&format=json" % username
@@ -32,7 +34,7 @@ def right(draw, text, font, x, y, color):
 
 
 recFormat = "/home/bootstrap/glapse/%09d.jpg"
-timeout = 5
+timeout = 10
 currentShot = 0
 
 while True:
@@ -40,71 +42,83 @@ while True:
     while os.path.isfile(filename):
         currentShot = currentShot + 1
         filename = recFormat % currentShot
-    print filename
 
     #journal = `journal last`
     #totals = (`pcfb total`).split("\n")
 
-    track = getPlayingTrack("Paamayim")
-    tracktext = "%s > %s" % (track[0], track[1])
+    try:
+        track = getPlayingTrack("Paamayim")
+        tracktext = "%s > %s" % (track[0], track[1])
+        tracktext = ""
 
-    ``
-    avconv -f video4linux2 -s 320x240 -i /dev/video0 -ss 0:0:2 -frames 1 /tmp/face.jpeg
-    scrot /tmp/screen.png
-    ``
-    #pcfb show --dark
-
-
-    fw = 320
-    fh = 240
-
-    face = Image.open("/tmp/face.jpeg")
-    screen = Image.open("/tmp/screen.png")
-    #pcfb = Image.open("/tmp/pcfb.png")
-
-    result = Image.new("RGB", (1600, 1140), 0x050505)
-    draw = ImageDraw.Draw(result)
-    big = ImageFont.truetype('/usr/share/fonts/truetype/freefont/FreeMono.ttf', 40)
-    mus = ImageFont.truetype('/usr/share/fonts/truetype/freefont/FreeMono.ttf', 24)
-    reg = ImageFont.truetype('/usr/share/fonts/truetype/freefont/FreeMono.ttf', 14)
+        ``
+        avconv -f video4linux2 -s 320x240 -i /dev/video0 -ss 0:0:2 -frames 1 /tmp/face.jpeg
+        scrot /tmp/screen.png
+        ``
+        #pcfb show --dark
 
 
-    sw = screen.size[0]
-    sh = screen.size[1]
-    result.paste(screen, (0, 0, sw, sh))
+        fw = 320
+        fh = 240
 
-    #pw = pcfb.size[0]
-    #ph = pcfb.size[1]
-    #px = sw - pw + 30
-    px = sw - 450 + 30
+        face = Image.open("/tmp/face.jpeg")
+        screen = Image.open("/tmp/screen.png")
+        #pcfb = Image.open("/tmp/pcfb.png")
 
-    #result.paste(pcfb, (px, sh, px + pw, sh + ph))
-
-    fx = sw / 2 - fw / 2
-    fy = sh
-    result.paste(face, (fx, fy, fx + fw, fy + fh))
-
-    tx = fx + fw
-
-    center(draw, `date +%A`, big, (tx + px) / 2 + 10, sh + 30, (130,163,230,128))
-    center(draw, `date +%H:%M`, big, (tx + px) / 2 + 10, sh + 70, (218,165,32,128))
-
-    #right(draw, `journal context`, big, fx - 20, sh + 70, (218,165,32,128))
-
-    #ty = sh + 20
-    #for line in (`journal read 8 --nocolor`).split("\n")[1:]:
-        #draw.text((10, ty), line, font=reg, fill=(255,255,255,128))
-        #ty += 20
+        result = Image.new("RGB", (1600, 1140), 0x050505)
+        draw = ImageDraw.Draw(result)
+        big = ImageFont.truetype('/usr/share/fonts/truetype/freefont/FreeMono.ttf', 40)
+        mus = ImageFont.truetype('/usr/share/fonts/truetype/freefont/FreeMono.ttf', 24)
+        reg = ImageFont.truetype('/usr/share/fonts/truetype/freefont/FreeMono.ttf', 14)
 
 
-    draw.text((10, sh + 205), tracktext, font=mus, fill=(255,64,64,128))
+        sw = screen.size[0]
+        sh = screen.size[1]
+        result.paste(screen, (0, 0, sw, sh))
 
-    #draw.text((tx + 20, sh + 150), totals[0], font=big, fill=(255,255,255,128))
-    #draw.text((tx + 150, sh + 162), "session", font=reg, fill=(255,255,255,128))
-    #draw.text((tx + 20, sh + 190), totals[1], font=big, fill=(255,255,255,128))
-    #draw.text((tx + 150, sh + 202), "today", font=reg, fill=(255,255,255,128))
+        #pw = pcfb.size[0]
+        #ph = pcfb.size[1]
+        #px = sw - pw + 30
+        px = sw - 450 + 30
 
-    result.save(filename)
+        #result.paste(pcfb, (px, sh, px + pw, sh + ph))
 
-    time.sleep(timeout)
+        fx = sw / 2 - fw / 2
+        fy = sh
+        result.paste(face, (fx, fy, fx + fw, fy + fh))
+
+        tx = fx + fw + 400
+
+        center(draw, `date "+%A, %B %d"`, big, (tx + px) / 2 + 10, sh + 30, (130,163,230,128))
+        center(draw, `date "+%H:%M:%S"`, big, (tx + px) / 2 + 10, sh + 70, (218,165,32,128))
+
+        #right(draw, `journal context`, big, fx - 20, sh + 70, (218,165,32,128))
+
+
+        ty = sh + 20
+        for rawline in (`git --no-pager log "--pretty=tformat:%ai: %s" | head`).split("\n"):
+            date = rawline[0:20]
+            msg = rawline[26:]
+            if len(msg) > 50:
+                msg = msg[:50] + "..."
+
+            draw.text((10, ty), date, font=reg, fill=(0,255,0,128))
+            draw.text((170, ty), msg, font=reg, fill=(255,255,255,128))
+            ty += 20
+
+
+        draw.text((10, sh + 205), tracktext, font=mus, fill=(255,64,64,128))
+
+        #draw.text((tx + 20, sh + 150), totals[0], font=big, fill=(255,255,255,128))
+        #draw.text((tx + 150, sh + 162), "session", font=reg, fill=(255,255,255,128))
+        #draw.text((tx + 20, sh + 190), totals[1], font=big, fill=(255,255,255,128))
+        #draw.text((tx + 150, sh + 202), "today", font=reg, fill=(255,255,255,128))
+
+        result.save(filename)
+
+        time.sleep(timeout)
+    except KeyboardInterrupt:
+        break
+    except:
+        pass
 
